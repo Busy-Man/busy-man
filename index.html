@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>busy-man</title>
+<style>
+  html,body{margin:0;height:100%;background:#16181A;color:#F2F3F1;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif}
+  main{height:100%;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:10px;text-align:center;padding:24px}
+  h1{margin:0;font-size:26px;font-weight:640;letter-spacing:-.02em}
+  p{margin:0;color:#8B9097;font-size:14px;line-height:1.7}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#61666C}
+</style>
+</head>
+<body>
+<main>
+  <h1>busy-man</h1>
+  <p>구현 준비 중</p>
+  <p><code>콘솔에 [boot] 로그가 보이면 배포 경로가 정상입니다</code></p>
+</main>
+
+<!--
+  경로는 반드시 상대경로(./)로 둔다. GitHub Pages는 이 저장소를
+  https://busy-man.github.io/busy-man/ 하위 경로로 서빙하므로
+  절대경로(/src/main.js)는 404가 된다.
+-->
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
