@@ -16,7 +16,7 @@
 //
 // 실패해도 절대 세션을 막지 않는다. 무슨 일이 있어도 exit 0.
 
-import { appendFileSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -70,8 +70,17 @@ function writePrompt(stdin) {
 
 // 가장 최근의 대기 항목 하나만 채운다. Stop이 걸러진 과거 항목까지 지금 HEAD로
 // 채우면 남의 커밋을 그 프롬프트의 산출물로 잘못 붙이게 된다.
+//
+// 오늘 날짜 파일을 고정으로 열면 자정을 넘겨 끝난 턴이 영영 안 채워진다 —
+// 프롬프트는 어제 파일에 적혔는데 Stop이 도는 시점에는 오늘 파일을 찾기 때문이다.
+// 그래서 날짜가 아니라 "가장 최근 파일"을 연다.
 function resolvePending() {
-  const file = logFile();
+  const files = readdirSync(rawDir)
+    .filter((n) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n))
+    .sort();
+  if (files.length === 0) return;
+
+  const file = join(rawDir, files[files.length - 1]);
   const text = readFileSync(file, 'utf8');
 
   const marker = /^반영 커밋: <!--pending:([0-9a-f]+|none)--> .*$/gm;
