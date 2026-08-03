@@ -25,7 +25,15 @@ desktop.ini
 node_modules/
 *.log
 
+# --- 보류 중 (결정되면 이 블록을 지운다) ------------------------------------
+# 프롬프트 원문. 구어체가 섞여 있고 저장소를 public으로 올리면 Pages를 통해
+# 웹에서도 열린다. 공개 여부를 팀에서 아직 논의하지 못했다.
+# push 후에는 squash·force-push 금지(심사 요건) 때문에 되돌릴 수 없으므로
+# 결정이 날 때까지 막아 둔다. 파일은 각자 로컬에 계속 쌓인다.
+# 사유와 해제 조건: docs/ai-log/raw/README.md
+docs/ai-log/raw/*.md
+!docs/ai-log/raw/README.md
+
 # --- 커밋하는 것 (참고) -----------------------------------------------------
-# docs/ai-log/raw/     프롬프트 원문. 8/9 인계 때 상대가 검증할 수 있어야 하고,
-#                      로컬에만 두면 유실 = 영구 유실이다. 제외하지 않는다.
+# docs/ai-log/specs/   AI가 만든 명세. .omc/에 두면 사라진다.
 # .claude/settings.json, .claude/skills/   팀 공유 자산이다.
