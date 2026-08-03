@@ -1,0 +1,15 @@
+# 저장소 안에서는 LF로 통일한다. 두 사람의 OS나 에디터 설정이 다르면
+# 한 줄도 안 고친 파일이 전부 변경된 것으로 보이고, 8/5 병합일에
+# 진짜 충돌과 줄바꿈 충돌을 구분할 수 없게 된다.
+* text=auto eol=lf
+
+# 바이너리 — 줄바꿈 변환 금지
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.zip binary

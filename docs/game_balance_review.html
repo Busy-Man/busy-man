@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상벌 균형과 질문 강제성 검토</title>
+<style>
+/* study-notes-html base stylesheet
+   Light mode only. Every color goes through a CSS variable — add a new ramp to :root
+   instead of hardcoding a hex value inline.
+*/
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f5;
+  --bg-card: #fafaf8;
+  --border: #e3e2dd;
+  --border-strong: #cfcdc5;
+  --text: #1c1c1a;
+  --text-secondary: #57564f;
+  --text-muted: #8a8880;
+
+  --accent: #185fa5;
+  --accent-bg: #e6f1fb;
+  --accent-border: #85b7eb;
+
+  --teal: #0f6e56;
+  --teal-bg: #e1f5ee;
+  --teal-border: #5dcaa5;
+
+  --coral: #993c1d;
+  --coral-bg: #faece7;
+  --coral-border: #f0997b;
+
+  --amber: #854f0b;
+  --amber-bg: #faeeda;
+  --amber-border: #ef9f27;
+
+  --purple: #534ab7;
+  --purple-bg: #eeedfe;
+  --purple-border: #afa9ec;
+
+  --mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Noto Sans KR', sans-serif;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Layout ---------- */
+/* Two variants: single-column (.page alone) or two-column with a sticky TOC sidebar
+   (.layout wrapping .toc + .page). Pick one — see references/components.md #2. */
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 64px 24px 120px;
+}
+
+.layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 48px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 64px 24px 120px;
+}
+.layout .page {
+  max-width: 720px;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Table of contents (sidebar) ---------- */
+.toc {
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 48px;
+}
+.toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--border);
+}
+.toc-list li { margin: 0; }
+.toc-list a {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 7px 0 7px 16px;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1.4;
+}
+.toc-list a:hover { color: var(--text); }
+.toc-list a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- Header ---------- */
+.header { margin-bottom: 56px; }
+.eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  line-height: 1.25;
+}
+.lead {
+  font-size: 17px;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0;
+}
+
+/* ---------- Overview pipeline (N-step summary strip) ---------- */
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 40px 0 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.pipe-step {
+  flex: 1;
+  min-width: 130px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 14px;
+  text-align: center;
+  position: relative;
+}
+.pipe-step .num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+.pipe-step .name { font-size: 13.5px; font-weight: 600; }
+.pipe-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* ---------- Section ---------- */
+section { margin-top: 72px; scroll-margin-top: 24px; }
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+.section-tag {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--text);
+  border-radius: 6px;
+  padding: 3px 9px;
+  flex-shrink: 0;
+}
+h2 { font-size: 23px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.section-sub { color: var(--text-secondary); font-size: 15px; margin: 4px 0 28px; }
+
+p { font-size: 15.5px; color: var(--text); margin: 0 0 16px; }
+p.muted { color: var(--text-secondary); }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin: 20px 0;
+}
+.card h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--text); }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  background: #1c1c1a;
+  color: #e8e6df;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 18px 0;
+  line-height: 1.6;
+}
+pre .cmt { color: #8a8880; }
+pre .kw { color: #85b7eb; }
+pre .fn { color: #ef9f27; }
+
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+td.mono { font-family: var(--mono); font-size: 13.5px; }
+
+.callout {
+  border-left: 3px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 18px;
+  margin: 20px 0;
+  font-size: 14.5px;
+  color: var(--accent);
+}
+.callout strong { color: var(--accent); }
+/* Color variants: <div class="callout warn"> etc. */
+.callout.warn { border-left-color: var(--amber-border); background: var(--amber-bg); color: var(--amber); }
+.callout.warn strong { color: var(--amber); }
+.callout.danger { border-left-color: var(--coral-border); background: var(--coral-bg); color: var(--coral); }
+.callout.danger strong { color: var(--coral); }
+.callout.good { border-left-color: var(--teal-border); background: var(--teal-bg); color: var(--teal); }
+.callout.good strong { color: var(--teal); }
+
+/* ---------- Diagram / visual box ---------- */
+.diagram {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 20px;
+  margin: 22px 0;
+}
+.vec-label { text-align: center; font-size: 12.5px; color: var(--text-muted); margin-bottom: 4px; }
+
+/* vector / cell grid (embeddings, matrix entries, etc.) */
+.vec-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 6px 0 18px; }
+.vec-cell {
+  width: 56px;
+  height: 44px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+/* horizontal bar chart */
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.bar-token { width: 52px; font-family: var(--mono); font-size: 12.5px; color: var(--text-secondary); text-align: right; flex-shrink: 0; }
+.bar-track { flex: 1; background: var(--bg-soft); border-radius: 4px; height: 18px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.bar-val { width: 52px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); text-align: right; flex-shrink: 0; }
+
+/* ---------- Interactive controls ---------- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0;
+  padding: 16px 18px;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+}
+.controls label { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+input[type="range"] { flex: 1; accent-color: var(--accent); }
+.controls .val { font-family: var(--mono); font-size: 14px; font-weight: 600; min-width: 36px; text-align: right; }
+
+.btn-row { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
+button {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+button:hover { background: var(--bg-soft); }
+button:active { transform: scale(0.98); }
+button.primary { background: var(--text); color: #fff; border-color: var(--text); }
+button.primary:hover { background: #3a3a37; }
+
+.result-box {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  text-align: center;
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  min-height: 22px;
+}
+.result-box strong {
+  font-family: var(--mono);
+  color: var(--text);
+  background: var(--bg-soft);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* legend for curve/line charts */
+.chart-legend { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin: 14px 0 4px; font-size: 12.5px; color: var(--text-secondary); }
+.chart-legend .item { display: flex; align-items: center; gap: 6px; }
+.chart-legend .swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart-legend .swatch.dashed { background: none; border-top: 2px dashed var(--text-muted); height: 0; }
+
+/* ---------- Comparison / strategy grid ---------- */
+.strategy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+.strategy-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; background: var(--bg-card); }
+.strategy-card .tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+}
+.strategy-card p { font-size: 13.5px; margin: 0; color: var(--text-secondary); }
+/* Tag colors: reuse under names that fit the content. Four defaults provided. */
+.tag.c1 { background: var(--coral-bg); color: var(--coral); }
+.tag.c2 { background: var(--accent-bg); color: var(--accent); }
+.tag.c3 { background: var(--teal-bg); color: var(--teal); }
+.tag.c4 { background: var(--purple-bg); color: var(--purple); }
+
+/* ---------- Flow / loop diagram (nodes + arrows) ---------- */
+.loop-diagram { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 24px 0; }
+.loop-node { background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; text-align: center; }
+.loop-node.highlight { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent); }
+.loop-arrow { color: var(--text-muted); font-size: 15px; }
+
+footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; padding: 40px 16px 80px; gap: 0; }
+  .toc { display: none; }
+}
+
+@media (max-width: 600px) {
+  .page { padding: 40px 16px 80px; }
+  h1 { font-size: 27px; }
+  .pipeline { flex-direction: column; }
+  .pipe-arrow { transform: rotate(90deg); width: auto; padding: 4px 0; }
+  .strategy-grid { grid-template-columns: 1fr; }
+  .vec-cell { width: 44px; height: 38px; font-size: 10.5px; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <nav class="toc" aria-label="목차">
+    <div class="toc-title">Contents</div>
+    <ul class="toc-list">
+      <li><a href="#s1" data-toc>01 전제 정정</a></li>
+      <li><a href="#s2" data-toc>02 상벌의 화폐</a></li>
+      <li><a href="#s3" data-toc>03 스크랩의 양면성</a></li>
+      <li><a href="#s4" data-toc>04 남은 균형 결함 3</a></li>
+      <li><a href="#s5" data-toc>05 손익분기 정답률</a></li>
+      <li><a href="#s6" data-toc>06 네비가 바꾸는 것</a></li>
+      <li><a href="#s7" data-toc>07 판정과 결정</a></li>
+    </ul>
+  </nav>
+
+  <div class="page">
+
+  <div class="header">
+    <div class="eyebrow">NHN NAN 2026 · 기획 검토</div>
+    <h1>상벌은 균형적인가, 질문은 무시할 수 있는가</h1>
+    <p class="lead">두 질문은 하나로 묶입니다. 무시가 가능하면 상벌 수치는 계산할 필요조차 없어지므로, 강제성이 상위 문제입니다. 결론부터: <strong>현재 설계에서 질문 무시는 합법이고, 경우에 따라 최적입니다.</strong> 원인은 딱 하나, 무응답 페널티가 정의되어 있지 않다는 점입니다.</p>
+  </div>
+
+  <div class="callout danger">
+    <strong>한 줄 요약:</strong> 상벌은 균형 이전에 <em>단위가 통일되어 있지 않고</em>, 강제성은 <em>무응답 비용이 0이라서</em> 성립하지 않습니다. 네비 안내 도입으로 "폰을 여는" 강제성은 확보되지만, "질문에 답하는" 강제성은 여전히 별개입니다. 다만 해법은 벌을 키우는 게 아닙니다 — 벌이 과하면 무시 대신 <em>난사</em>가 최적이 됩니다 (§05).
+  </div>
+
+  <!-- ===================== 01 ===================== -->
+  <section id="s1">
+    <div class="section-head">
+      <span class="section-tag">01</span>
+      <h2>전제 정정</h2>
+    </div>
+    <p class="section-sub">앞선 검토에서 잘못 읽은 두 가지와, 그것이 결론을 어떻게 바꾸는지.</p>
+
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <span class="tag c3">정정 1</span>
+        <p><strong>스크랩 삭제는 정답 시의 상이다.</strong> 슬롯 5칸 중 소진된 스크랩을 지워 새 문자를 찜할 여유를 되찾는 것. 앞선 검토에서 이를 벌로 읽고 "폐기하라"고 한 것은 철회합니다.</p>
+      </div>
+      <div class="strategy-card">
+        <span class="tag c3">정정 2</span>
+        <p><strong>네비 안내는 반영 예정이다.</strong> 기획 초안에는 빠져 있었으나 구현 계획에 포함. 프로토타입의 <code>지도: 환승 통로 — 왼쪽</code> 구조가 유지됩니다.</p>
+      </div>
+    </div>
+
+    <p>정정 1은 분석을 뒤집습니다. 스크랩 삭제가 상이라면, 문제는 "권장 행동에 벌을 준다"가 아니라 <strong>같은 동작이 상과 벌 양쪽에 배치되어 있다</strong>는 것입니다 (§03). 정정 2는 강제성 논의의 절반을 해결하지만, 나머지 절반은 오히려 더 까다로워집니다 (§06).</p>
+
+    <div class="callout good">
+      <strong>유지되는 지적:</strong> 무응답 페널티 부재, 랜덤 페널티의 표본 부족, 게이지 상한, 부스트가 진짜 상인지, 생명·시간 이중 실패축. 다섯 개는 정정과 무관하게 그대로 남습니다.
+    </div>
+  </section>
+
+  <!-- ===================== 02 ===================== -->
+  <section id="s2">
+    <div class="section-head">
+      <span class="section-tag">02</span>
+      <h2>상벌의 화폐</h2>
+    </div>
+    <p class="section-sub">플레이어가 판단하려면 상과 벌이 같은 단위로 표시되어야 한다.</p>
+
+    <p>플레이어는 질문이 도착한 순간 "이거 답할 가치가 있나"를 0.5초 안에 판단해야 합니다. 상과 벌의 단위가 다르면 그 판단 자체가 불가능합니다. <code>game-overview-draft.md</code>에서 이미 내린 결론이 여기에도 그대로 적용됩니다.</p>
+
+    <div class="callout">
+      <strong>기존 결론:</strong> "모든 실패는 진행을 끊지 말고 초로 환산되어야 한다."
+    </div>
+
+    <p>현행 항목을 초 기준으로 세워 보면 이렇습니다.</p>
+
+    <table>
+      <thead>
+        <tr><th>항목</th><th>구분</th><th>초 환산</th><th>평가</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>게이지 증가</td><td>상</td><td class="mono">직접 (→부스트→단축)</td><td>기준 화폐. 유지</td></tr>
+        <tr><td>스크랩 슬롯 회수</td><td>상</td><td class="mono">2단계 간접</td><td>§03에서 다룸</td></tr>
+        <tr><td>일정 시간 감속</td><td>벌</td><td class="mono">직접</td><td>기준 화폐. 유지</td></tr>
+        <tr><td>게이지 감소</td><td>벌</td><td class="mono">직접</td><td>단, 하한 문제 있음</td></tr>
+        <tr><td>스크랩 랜덤 삭제</td><td>벌</td><td class="mono">부호 불명</td><td><strong>제거 권장</strong></td></tr>
+        <tr><td>생명 −1</td><td>벌</td><td class="mono">환산 불가 (즉사축)</td><td><strong>제거 권장</strong></td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">벌의 자기 해제 문제</h3>
+    <p>현행 벌 3종 중 2종은 <em>가진 사람만 아픈</em> 구조입니다. 스크랩이 0이면 스크랩 삭제는 무효, 게이지가 0이면 게이지 감소도 무효입니다.</p>
+
+    <div class="loop-diagram">
+      <div class="loop-node">오답</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node">자원 감소</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node highlight">다음 오답이 더 쌈</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node">오답</div>
+    </div>
+
+    <p>못하는 플레이어일수록 오답이 저렴해지고, 잘하는 플레이어일수록 오답 1회가 비쌉니다. <strong>상벌이 실력과 역상관</strong>입니다. 기획 초안에 열린 질문으로 남겨두신 <em>"스크랩이 없고 게이지도 0일 때 그래도 랜덤으로?"</em>는 이 구조적 결함의 증상입니다. 벌을 항상 존재하는 자원(시간)에 걸면 그 질문이 아예 사라집니다.</p>
+  </section>
+
+  <!-- ===================== 03 ===================== -->
+  <section id="s3">
+    <div class="section-head">
+      <span class="section-tag">03</span>
+      <h2>스크랩의 양면성</h2>
+    </div>
+    <p class="section-sub">같은 "삭제"가 상이면서 동시에 벌이면, 플레이어는 부호를 학습할 수 없다.</p>
+
+    <p>정정을 반영하면 스크랩은 이렇게 정리됩니다.</p>
+
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <span class="tag c3">상 — 정답 시</span>
+        <p>소진된 스크랩을 <strong>선택해서</strong> 삭제. 슬롯 1칸 회수 → 새 문자를 찜할 수 있음.</p>
+      </div>
+      <div class="strategy-card">
+        <span class="tag c1">벌 — 오답 시</span>
+        <p>스크랩 하나를 <strong>랜덤으로</strong> 삭제. 미사용 근거가 날아갈 수 있음.</p>
+      </div>
+    </div>
+
+    <p>동사가 같습니다. 차이는 (a) 선택권 유무와 (b) 대상이 이미 쓴 스크랩인지 아직 안 쓴 스크랩인지뿐입니다. 플레이어 화면에서 이 둘은 <strong>구분되지 않습니다</strong> — 둘 다 "스크랩이 사라졌다"로 보입니다.</p>
+
+    <div class="callout danger">
+      <strong>실제 발생하는 역전:</strong> 슬롯 5칸이 찼고 그중 3개가 이미 지나간·쓸모없는 스크랩이면, 오답으로 인한 랜덤 삭제는 <strong>60% 확률로 이득</strong>입니다. 벌이 상이 되는 구간이 존재합니다.
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">상의 가치가 0이 되는 구간</h3>
+    <p>더 큰 문제는 반대쪽입니다. 슬롯 회수는 <strong>슬롯이 가득 찼을 때만</strong> 가치가 있습니다. 슬롯 5칸에 스크랩이 2개뿐이면 정답 보상은 정확히 0입니다.</p>
+
+    <p>스테이지 3~5분, 문항 6~10개라면 슬롯이 포화되는 시점은 중반 이후입니다. 즉 <strong>초반 정답의 스크랩 보상은 사실상 존재하지 않습니다.</strong> 이는 §04의 게이지 상한 문제와 정확히 거울상입니다 — 한쪽은 초반에, 한쪽은 후반에 상이 0이 됩니다.</p>
+
+    <div class="diagram">
+      <div class="vec-label">스테이지 진행에 따른 두 상의 실효 가치</div>
+      <div class="bar-row"><span class="bar-token">초반</span><div class="bar-track"><div class="bar-fill" style="width:12%;background:#f0997b;"></div></div><span class="bar-val">스크랩</span></div>
+      <div class="bar-row"><span class="bar-token">초반</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:#5dcaa5;"></div></div><span class="bar-val">게이지</span></div>
+      <div class="bar-row"><span class="bar-token">후반</span><div class="bar-track"><div class="bar-fill" style="width:80%;background:#5dcaa5;"></div></div><span class="bar-val">스크랩</span></div>
+      <div class="bar-row"><span class="bar-token">후반</span><div class="bar-track"><div class="bar-fill" style="width:18%;background:#f0997b;"></div></div><span class="bar-val">게이지</span></div>
+    </div>
+
+    <p class="muted">우연히 서로를 보완하는 모양이지만, 이건 설계가 아니라 사고입니다. 두 상의 유효 구간이 겹치지 않으므로 어느 시점에든 상은 사실상 하나뿐입니다.</p>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">수정 방향</h3>
+    <table>
+      <thead><tr><th>대상</th><th>수정</th><th>이유</th></tr></thead>
+      <tbody>
+        <tr><td>오답 시 스크랩 랜덤 삭제</td><td><strong>제거</strong></td><td>부호가 불명확하고 벌로 기능하지 않음</td></tr>
+        <tr><td>정답 시 삭제 "권한"</td><td>자동 소멸로 변경</td><td>권한은 조작 부담일 뿐, 상으로 체감되지 않음</td></tr>
+        <tr><td>슬롯 수 5</td><td><strong>3으로 축소</strong></td><td>포화를 상시화해야 슬롯 회수가 상이 됨</td></tr>
+        <tr><td>스크랩을 벌에 쓰고 싶다면</td><td>삭제 대신 <em>일정 시간 잠금</em></td><td>동사를 분리해야 상벌 부호가 학습됨</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout good">
+      <strong>슬롯 3칸의 부수 효과:</strong> 찜할 문자를 고르는 것 자체가 선택이 됩니다. 5칸은 "보이는 대로 다 찜"이 최적이라 판단이 없지만, 3칸은 버릴 문자를 골라야 합니다. 스크랩 시스템이 처음으로 게임이 됩니다.
+    </div>
+  </section>
+
+  <!-- ===================== 04 ===================== -->
+  <section id="s4">
+    <div class="section-head">
+      <span class="section-tag">04</span>
+      <h2>남은 균형 결함 3</h2>
+    </div>
+    <p class="section-sub">정정과 무관하게 그대로 남는 것들.</p>
+
+    <h3 style="font-size:16px;margin:24px 0 10px;">① 랜덤 페널티는 표본이 너무 적다</h3>
+    <p>3~5분에 6~10문항이면 오답은 많아야 3~4회입니다. 룰렛을 3번 돌려서는 기댓값이 나오지 않습니다. 같은 실수를 해도 결과가 3배 차이 나고, 플레이어는 "운이 나빴다"고 귀인합니다. 짧은 게임의 핵심은 <strong>재도전 간 비교</strong>인데 랜덤이 그 비교를 막습니다.</p>
+    <div class="callout warn">
+      <strong>대안:</strong> 연출은 룰렛·카드 뽑기로 하되 결과는 결정적으로. 또는 스테이지 시작 시 "오늘의 패널티" 하나를 미리 공개. 후자는 판마다 다르게 느껴지면서 판 안에서는 예측 가능합니다.
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">② 게이지 상한에서 정답 가치가 0이 된다</h3>
+    <p>게이지가 가득 찬 상태에서 남은 질문은 <strong>정답 이득 0, 오답 손실은 그대로</strong>입니다. 이 구간에서 무시는 계산상 명백한 최적해입니다. 게이지 최대치를 2~3칸으로 낮춰 소모를 강제하거나, 초과분을 점수·등급으로 흘려보내야 합니다.</p>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">③ 부스트가 진짜 상인지 검증되지 않았다</h3>
+    <p>속도 증가는 곧 충돌 확률 증가이고, 충돌은 감속입니다. 부스트가 순이익이 아니면 상 전체가 가짜입니다.</p>
+    <div class="callout good">
+      <strong>해법:</strong> 부스트 중에는 사람을 밀치고 지나가게 하십시오. 그러면 부스트가 "속도 + 무적 + 폰 볼 여유"가 되어 상이 명확해지고, <em>정답 → 부스트 → 폰 볼 여유 → 다음 정답</em>이라는 선순환이 생깁니다. 상이 코어 행동을 강화하는 형태입니다.
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">④ 생명과 제한시간의 이중 실패축</h3>
+    <p><code>길 잘못 듦 = 생명 −1 + 뒤로 보냄</code>인데, 기획 초안 스스로 <em>"시간이 더 걸리니 못 깬다"</em>고 적으셨습니다. 이미 시간으로 환산되어 있으니 생명은 중복이고, 즉사 위험만 추가합니다. <code>제출_체크리스트</code>의 "심사자 이탈 방지" 원칙과도 충돌합니다. <strong>시간 단일 축</strong>을 권합니다.</p>
+  </section>
+
+  <!-- ===================== 05 ===================== -->
+  <section id="s5">
+    <div class="section-head">
+      <span class="section-tag">05</span>
+      <h2>손익분기 정답률</h2>
+    </div>
+    <p class="section-sub">강제성은 취향이 아니라 부등식이다. 노브는 하나뿐이다.</p>
+
+    <p>질문을 받은 플레이어의 두 선택지를 기댓값으로 씁니다.</p>
+
+<pre><span class="cmt">// 응답할 때</span>
+EV_응답 = p·G − (1−p)·L − C
+
+<span class="cmt">// 무시할 때</span>
+EV_무시 = −I
+
+<span class="cmt">  p = 정답률          G = 정답 이득 (초)</span>
+<span class="cmt">  L = 오답 손실 (초)   C = 응시 비용 — 폰 보는 동안 전방 정보 상실</span>
+<span class="cmt">  I = 무응답 페널티   ← 기획서에 정의 없음. 즉 현재 I = 0</span></pre>
+
+    <p><code>C</code>는 실재하고 0이 아닙니다. 오히려 무시는 "안전 주행"이라 완주 안정성이 올라갑니다. <code>I = 0</code>인 한 웬만한 <code>G</code>로는 응답이 무시를 이기지 못합니다.</p>
+
+    <p>두 식을 같게 놓으면 <strong>손익분기 정답률</strong>이 나옵니다. 이 하나가 설계 전체의 노브입니다.</p>
+
+<pre>p* = (L + C − I) / (G + L)</pre>
+
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <span class="tag c1">p* &lt; 0.33</span>
+        <p>보기 3개를 <strong>찍기만 해도 이득</strong>. 근거를 찾을 이유가 없어지고 스크랩 시스템 전체가 무의미해집니다.</p>
+      </div>
+      <div class="strategy-card">
+        <span class="tag c1">p* &gt; 0.75</span>
+        <p>확신이 없으면 <strong>무시가 최적</strong>. 챌린지가 회피 가능해집니다.</p>
+      </div>
+    </div>
+
+    <div class="callout good">
+      <strong>목표 밴드는 p* ≈ 0.45 ~ 0.70.</strong> 찍기(0.33)로는 손해라서 근거 확보가 강제되고, 근거가 있으면(0.75~0.9) 확실히 이득이라 스크랩·기억이 보상받습니다. <em>정답을 아는 것</em>이 처음으로 값어치를 갖는 구간입니다.
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 14px;">계산기</h3>
+    <p class="muted">기본값은 앞선 논의의 예시 수치입니다 (완주 210초 / 목표 180초 / 부스트 1칸 = 5초).</p>
+
+    <div class="controls">
+      <label for="sG">G 정답 이득</label>
+      <input type="range" min="1" max="15" step="0.5" value="5" id="sG">
+      <span class="val" id="sG-out">5.0</span>
+    </div>
+    <div class="controls">
+      <label for="sL">L 오답 손실</label>
+      <input type="range" min="0" max="15" step="0.5" value="5" id="sL">
+      <span class="val" id="sL-out">5.0</span>
+    </div>
+    <div class="controls">
+      <label for="sC">C 응시 비용</label>
+      <input type="range" min="0" max="8" step="0.25" value="2.5" id="sC">
+      <span class="val" id="sC-out">2.50</span>
+    </div>
+    <div class="controls">
+      <label for="sI">I 무응답 벌</label>
+      <input type="range" min="0" max="20" step="0.5" value="0" id="sI">
+      <span class="val" id="sI-out">0.0</span>
+    </div>
+    <div class="controls">
+      <label for="sA">네비 상각률</label>
+      <input type="range" min="0" max="100" step="5" value="0" id="sA">
+      <span class="val" id="sA-out">0%</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="primary" id="bReset">현행 기획 (I=0, 네비 미반영)</button>
+      <button id="bFix">권장안</button>
+    </div>
+
+    <div class="diagram">
+      <div class="vec-label">정답률별 기댓값 — 0선 위쪽이면 응답이 이득</div>
+      <svg id="chart" viewBox="0 0 680 240" style="width:100%;height:auto;"></svg>
+      <div class="chart-legend">
+        <div class="item"><span class="swatch" style="background:#185fa5;"></span> 응답</div>
+        <div class="item"><span class="swatch" style="background:#993c1d;"></span> 무시</div>
+      </div>
+    </div>
+
+    <div class="result-box" id="result-box"></div>
+
+    <p style="margin-top:24px;">기본값으로 계산하면 정답률 70%를 유지해도 응답이 손해입니다. <code>0.7×5 − 0.3×5 − 2.5 = −0.5초</code>. <strong>잘 맞히는 플레이어조차 무시하는 편이 낫습니다.</strong></p>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">무응답 페널티는 클수록 좋은 게 아니다</h3>
+    <p>여기서 반직관적인 결과가 나옵니다. 강제성을 만들려고 <code>I</code>를 크게 잡으면 실패 모드가 <strong>반대편으로 넘어갑니다</strong>. 계산기에서 확인해 보십시오.</p>
+
+    <table>
+      <thead><tr><th>설정</th><th>p*</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>I = 0, 네비 상각 0%</td><td class="mono">0.75</td><td style="color:var(--coral);">무시가 최적 — 현행 기획</td></tr>
+        <tr><td>I = 1.5, 네비 상각 50%</td><td class="mono">0.47</td><td style="color:var(--teal);">목표 밴드</td></tr>
+        <tr><td>I = 8, 네비 상각 50%</td><td class="mono">−0.17</td><td style="color:var(--coral);">찍기가 최적 — 스크랩 무의미</td></tr>
+      </tbody>
+    </table>
+
+    <p>무응답 벌이 과하면 플레이어는 "일단 아무거나 누르고 본다"가 최적 전략이 됩니다. 질문은 강제되지만 <strong>읽기는 강제되지 않습니다.</strong> 이건 무시보다 나쁩니다 — 무시는 최소한 플레이어가 판단한 결과지만, 난사는 판단 자체가 사라진 상태이기 때문입니다.</p>
+
+    <div class="callout danger">
+      <strong>결론:</strong> 무응답 페널티는 정의하되 <strong>작게</strong>. 오답 손실보다 약간 작은 정도 (<code>I ≈ 0.2~0.4 × L</code>)면 충분합니다. 강제성의 무게중심은 <code>I</code>가 아니라 <strong>응시 비용 C를 네비로 상각하는 쪽</strong>에 두는 편이 안전합니다. 위 표에서 p*를 밴드로 끌어내린 주된 힘도 상각 50%지 I가 아닙니다.
+    </div>
+  </section>
+
+  <!-- ===================== 06 ===================== -->
+  <section id="s6">
+    <div class="section-head">
+      <span class="section-tag">06</span>
+      <h2>네비가 바꾸는 것</h2>
+    </div>
+    <p class="section-sub">네비 도입은 강제성 문제의 절반만 푼다. 나머지 절반은 오히려 까다로워진다.</p>
+
+    <p>프로토타입 헤더의 문장이 이 설계의 원형입니다.</p>
+    <div class="callout">
+      <strong>Busy-Man-prototype.html:</strong> "폰에만 길이 있고, 전방에만 사람이 있습니다."
+    </div>
+
+    <p>여기서는 무시가 <em>불가능</em>합니다. <code>지도: 환승 통로 — 왼쪽</code>이 폰에만 뜨기 때문입니다. 네비를 되살리면 이 정보 종속이 복원됩니다. 다만 무엇이 강제되는지를 정확히 구분해야 합니다.</p>
+
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <span class="tag c3">네비가 강제하는 것</span>
+        <p><strong>폰을 여는 행위.</strong> 안내를 놓치면 길을 잘못 들므로 폰은 반드시 열어야 합니다.</p>
+      </div>
+      <div class="strategy-card">
+        <span class="tag c1">네비가 강제하지 못하는 것</span>
+        <p><strong>질문에 답하는 행위.</strong> 폰을 열되 질문 알림만 흘려보내면 그만입니다.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">상각과 충돌 — 방향이 둘 다 가능하다</h3>
+    <p>네비가 응시 비용 <code>C</code>에 미치는 영향은 <strong>타이밍에 따라 부호가 반대</strong>입니다.</p>
+
+    <table>
+      <thead><tr><th>타이밍</th><th>효과</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>네비와 질문이 <strong>분리</strong>되어 도착</td><td>어차피 폰을 볼 것이므로 <code>C</code>가 상각됨</td><td class="mono" style="color:var(--teal);">응답 유리</td></tr>
+        <tr><td>네비와 질문이 <strong>동시</strong>에 도착</td><td>질문을 읽느라 안내를 놓침 → 실질 비용 급증</td><td class="mono" style="color:var(--coral);">무시 유리</td></tr>
+      </tbody>
+    </table>
+
+    <p>즉 네비 도입은 강제성을 자동으로 주지 않습니다. §05 계산기의 <em>네비 상각률</em> 슬라이더를 올려보면, 상각이 충분할 때만 응답 EV가 0선을 넘습니다.</p>
+
+    <div class="callout warn">
+      <strong>설계 규칙:</strong> 네비 안내 구간과 질문 도착을 기본적으로 겹치지 않게 스케줄링하십시오. 겹치는 배치는 <em>후반 난이도 상승 장치</em>로만 의도적으로 쓰고, 초반에는 금지합니다. 겹침이 기본이면 무시가 학습됩니다.
+    </div>
+
+    <p>네비를 넣을 때 함께 지켜야 할 조건은 넷입니다.</p>
+    <ol style="font-size:15.5px;line-height:1.9;">
+      <li>안내는 <strong>폰에만</strong> 존재한다. 전방 표지판을 만들지 않는다.</li>
+      <li>안내는 <strong>사라진다.</strong> 상시 표시하면 폰을 열 이유가 1회로 줄어든다.</li>
+      <li>질문 UI가 채팅 영역을 덮는다. 그래야 두 정보원이 <strong>같은 화면을 두고 경쟁</strong>한다.</li>
+      <li>오답의 결과 일부를 <strong>정보 품질</strong>로 돌린다. 예: 다음 안내가 34m 전이 아니라 12m 전에 뜬다.</li>
+    </ol>
+
+    <p>4번이 특히 중요합니다. 벌이 "감속"이라는 별개 화폐가 아니라 "폰을 더 오래 봐야 함"이 되므로, <strong>벌이 코어 루프를 강화</strong>합니다. 감속은 플레이어를 게임에서 밀어내지만, 정보 저하는 게임 안으로 밀어 넣습니다.</p>
+  </section>
+
+  <!-- ===================== 07 ===================== -->
+  <section id="s7">
+    <div class="section-head">
+      <span class="section-tag">07</span>
+      <h2>판정과 결정</h2>
+    </div>
+    <p class="section-sub">오늘 프로토에서 확인할 것 하나와, 오늘 정할 것 셋.</p>
+
+    <p><code>game-overview-draft.md</code>가 검증 질문을 하나로 좁힌 것처럼, 여기서도 하나면 충분합니다.</p>
+
+    <div class="callout danger">
+      <strong>판정 실험:</strong> 폰을 한 번도 열지 않고 플레이해서 클리어되는가? <br>클리어되면 강제성 실패입니다. 그 다음 단계로 — 폰은 열되 <em>질문만</em> 전부 무시하고 클리어되는가? 이것도 클리어되면 네비만으로는 부족하다는 뜻입니다.
+    </div>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">무시가 이득이 되는 구간 체크리스트</h3>
+    <p class="muted">테스트할 때 이 다섯 상황을 의도적으로 만들어 보십시오.</p>
+    <ul style="font-size:15.5px;line-height:1.9;">
+      <li>게이지 만땅일 때 (정답 이득 0)</li>
+      <li>스크랩 슬롯이 비어 있을 때 (스크랩 보상 0)</li>
+      <li>마지막 질문 (남은 거리 &lt; 부스트 이득)</li>
+      <li>스크랩 0 + 게이지 0 (페널티 무효 상태)</li>
+      <li>갈림길 직전에 질문이 도착할 때 (§06 충돌)</li>
+    </ul>
+
+    <h3 style="font-size:16px;margin:32px 0 10px;">오늘(8/1) 결정할 것</h3>
+    <table>
+      <thead><tr><th>#</th><th>결정</th><th>미루면</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">1</td><td><strong>무응답 페널티 정의</strong> (작게, <code>0.2~0.4 × 오답 손실</code>)</td><td>I = 0인 한 나머지 밸런싱이 전부 무의미해짐</td></tr>
+        <tr><td class="mono">2</td><td><strong>페널티를 시간 단일 화폐로 통일</strong> — 스크랩 랜덤 삭제·생명 제거, 랜덤 제거</td><td>8/5 밸런싱 단계에서 변수가 5개로 늘어남</td></tr>
+        <tr><td class="mono">3</td><td><strong>네비·질문 스케줄 분리 규칙</strong> + 슬롯 5→3</td><td>시나리오 생성(8/1~8/4) 후에는 되돌리기 비쌈</td></tr>
+      </tbody>
+    </table>
+
+    <p>3번은 <code>제출_체크리스트</code> 일정상 오늘 안에 정하는 편이 낫습니다. 8/1~8/4가 시나리오 생성 + UI 구현 구간이고, 질문 도착 타이밍은 시나리오 데이터에 박히기 때문입니다. AI로 생성한 정적 JSON을 다시 만드는 것보다 규칙을 먼저 정하는 쪽이 쌉니다.</p>
+
+    <div class="loop-diagram">
+      <div class="loop-node">무응답 벌 정의</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node">시간 단일 화폐</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node">p* 를 0.45~0.70에</div>
+      <span class="loop-arrow">→</span>
+      <div class="loop-node highlight">근거 확보가 강제됨</div>
+    </div>
+  </section>
+
+  <footer>NHN NAN 2026 사전 과제 · 기획 검토 메모 · 2026-08-01</footer>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var ids = ['sG','sL','sC','sI','sA'];
+  var fmt = { sG:1, sL:1, sC:2, sI:1, sA:0 };
+
+  function val(id){ return parseFloat(document.getElementById(id).value); }
+
+  function readParams(){
+    var G = val('sG'), L = val('sL'), C = val('sC'), I = val('sI');
+    var alpha = val('sA') / 100;
+    return { G:G, L:L, C:C, I:I, Ceff: C * (1 - alpha) };
+  }
+
+  function evRespond(p, q){ return p * q.G - (1 - p) * q.L - q.Ceff; }
+  function evIgnore(q){ return -q.I; }
+
+  function breakEven(q){
+    var denom = q.G + q.L;
+    if (denom <= 0) return null;
+    return (q.L + q.Ceff - q.I) / denom;
+  }
+
+  function verdict(pStar){
+    if (pStar === null) return { cls:'warn', text:'G와 L이 모두 0이라 계산할 수 없습니다.' };
+    if (pStar <= 0.333) return { cls:'danger', text:'찍기만 해도 이득 — 근거를 찾을 이유가 없어집니다.' };
+    if (pStar > 0.70)   return { cls:'danger', text:'확신이 없으면 무시가 최적 — 챌린지를 회피할 수 있습니다.' };
+    if (pStar >= 0.45)  return { cls:'good',   text:'목표 밴드 안. 찍기는 손해, 근거가 있으면 이득입니다.' };
+    return { cls:'warn', text:'다소 관대합니다. 근거 없이도 답하는 편이 유리할 수 있습니다.' };
+  }
+
+  function drawChart(q){
+    var svg = document.getElementById('chart');
+    var W = 680, H = 240;
+    var pad = { l: 46, r: 18, t: 18, b: 40 };
+    var plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+
+    var ps = [];
+    for (var i = 0; i <= 40; i++) ps.push(i / 40);
+
+    var respVals = ps.map(function(p){ return evRespond(p, q); });
+    var ignVal = evIgnore(q);
+
+    var all = respVals.concat([ignVal, 0]);
+    var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+    var span = Math.max(hi - lo, 1);
+    lo -= span * 0.12; hi += span * 0.12;
+
+    var xFor = function(p){ return pad.l + p * plotW; };
+    var yFor = function(v){ return pad.t + plotH - ((v - lo) / (hi - lo)) * plotH; };
+
+    var s = '';
+    s += '<line x1="' + pad.l + '" y1="' + pad.t + '" x2="' + pad.l + '" y2="' + (pad.t + plotH) + '" stroke="#cfcdc5" stroke-width="0.5"/>';
+
+    // zero line
+    if (0 >= lo && 0 <= hi) {
+      var yz = yFor(0);
+      s += '<line x1="' + pad.l + '" y1="' + yz.toFixed(1) + '" x2="' + (pad.l + plotW) + '" y2="' + yz.toFixed(1) + '" stroke="#8a8880" stroke-width="1"/>';
+      s += '<text x="' + (pad.l - 8) + '" y="' + (yz + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#8a8880">0</text>';
+    }
+
+    // gridlines
+    [lo + (hi - lo) * 0.15, hi - (hi - lo) * 0.15].forEach(function(v){
+      var y = yFor(v);
+      s += '<line x1="' + pad.l + '" y1="' + y.toFixed(1) + '" x2="' + (pad.l + plotW) + '" y2="' + y.toFixed(1) + '" stroke="#e3e2dd" stroke-width="0.5" stroke-dasharray="2 3"/>';
+      s += '<text x="' + (pad.l - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#8a8880">' + v.toFixed(1) + '</text>';
+    });
+
+    // target band 0.45 - 0.70
+    s += '<rect x="' + xFor(0.45).toFixed(1) + '" y="' + pad.t + '" width="' + (xFor(0.70) - xFor(0.45)).toFixed(1) + '" height="' + plotH + '" fill="#e1f5ee" opacity="0.7"/>';
+    s += '<text x="' + xFor(0.575).toFixed(1) + '" y="' + (pad.t + 14) + '" text-anchor="middle" font-size="10.5" fill="#0f6e56">목표 밴드</text>';
+
+    // ignore line
+    var yi = yFor(ignVal);
+    s += '<line x1="' + pad.l + '" y1="' + yi.toFixed(1) + '" x2="' + (pad.l + plotW) + '" y2="' + yi.toFixed(1) + '" stroke="#993c1d" stroke-width="2" stroke-dasharray="6 4"/>';
+
+    // respond curve
+    var d = respVals.map(function(v, i){
+      return (i === 0 ? 'M ' : 'L ') + xFor(ps[i]).toFixed(1) + ' ' + yFor(v).toFixed(1);
+    }).join(' ');
+    s += '<path d="' + d + '" fill="none" stroke="#185fa5" stroke-width="2.5" stroke-linecap="round"/>';
+
+    // break-even marker
+    var pStar = breakEven(q);
+    if (pStar !== null && pStar >= 0 && pStar <= 1) {
+      s += '<line x1="' + xFor(pStar).toFixed(1) + '" y1="' + pad.t + '" x2="' + xFor(pStar).toFixed(1) + '" y2="' + (pad.t + plotH) + '" stroke="#1c1c1a" stroke-width="1" stroke-dasharray="3 3"/>';
+      s += '<circle cx="' + xFor(pStar).toFixed(1) + '" cy="' + yFor(evRespond(pStar, q)).toFixed(1) + '" r="4" fill="#1c1c1a"/>';
+      s += '<text x="' + xFor(pStar).toFixed(1) + '" y="' + (pad.t + plotH + 32) + '" text-anchor="middle" font-size="11" font-weight="600" fill="#1c1c1a">p* ' + pStar.toFixed(2) + '</text>';
+    }
+
+    // x labels
+    [0, 0.33, 0.5, 0.75, 1].forEach(function(p){
+      s += '<text x="' + xFor(p).toFixed(1) + '" y="' + (pad.t + plotH + 17) + '" text-anchor="middle" font-size="11" fill="#57564f">' + p.toFixed(2) + '</text>';
+    });
+    s += '<text x="' + (pad.l + plotW / 2).toFixed(1) + '" y="' + (H - 3) + '" text-anchor="middle" font-size="11" fill="#8a8880">정답률 p</text>';
+
+    svg.innerHTML = s;
+  }
+
+  function render(){
+    var q = readParams();
+    var pStar = breakEven(q);
+    var v = verdict(pStar);
+
+    var ev70 = evRespond(0.7, q);
+    var evIg = evIgnore(q);
+
+    var pStarText = (pStar === null) ? '—'
+      : (pStar < 0 ? '0 미만 (항상 응답 이득)' : (pStar > 1 ? '1 초과 (항상 무시 이득)' : pStar.toFixed(2)));
+
+    document.getElementById('result-box').innerHTML =
+      '손익분기 정답률 p* = <strong>' + pStarText + '</strong>' +
+      ' &nbsp;·&nbsp; p=0.70에서 응답 <strong>' + ev70.toFixed(2) + '초</strong>' +
+      ' vs 무시 <strong>' + evIg.toFixed(2) + '초</strong>' +
+      '<div style="margin-top:10px;font-size:13.5px;color:' +
+        (v.cls === 'good' ? 'var(--teal)' : v.cls === 'warn' ? 'var(--amber)' : 'var(--coral)') +
+        ';font-weight:600;">' + v.text + '</div>';
+
+    drawChart(q);
+  }
+
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('input', function(){
+      var out = document.getElementById(id + '-out');
+      out.textContent = (id === 'sA')
+        ? parseFloat(el.value).toFixed(0) + '%'
+        : parseFloat(el.value).toFixed(fmt[id]);
+      render();
+    });
+  });
+
+  function setAll(g, l, c, i, a){
+    var v = { sG:g, sL:l, sC:c, sI:i, sA:a };
+    ids.forEach(function(id){
+      document.getElementById(id).value = v[id];
+      document.getElementById(id + '-out').textContent =
+        (id === 'sA') ? v[id].toFixed(0) + '%' : v[id].toFixed(fmt[id]);
+    });
+    render();
+  }
+
+  document.getElementById('bReset').addEventListener('click', function(){ setAll(5, 5, 2.5, 0, 0); });
+  document.getElementById('bFix').addEventListener('click', function(){ setAll(5, 5, 2.5, 1.5, 50); });
+
+  // TOC scroll-spy
+  var tocLinks = document.querySelectorAll('.toc-list a[data-toc]');
+  var sections = Array.prototype.map.call(tocLinks, function(a){ return document.querySelector(a.getAttribute('href')); });
+  function setActive(id){
+    Array.prototype.forEach.call(tocLinks, function(a){
+      a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+    });
+  }
+  var observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){ if (entry.isIntersecting) setActive(entry.target.id); });
+  }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+  sections.forEach(function(sec){ if (sec) observer.observe(sec); });
+  Array.prototype.forEach.call(tocLinks, function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var t = document.querySelector(a.getAttribute('href'));
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

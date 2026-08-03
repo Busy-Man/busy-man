@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>역할 분담 & 일정 — NHN NAN 2026 사전 과제</title>
+<style>
+  :root{
+    --paper:#F2F3F1; --panel:#FFFFFF; --ink:#16181A; --soft:#61666C; --faint:#8B9097;
+    --line:#DADDE0; --line2:#EAECEE;
+    --pick:#1E5F58; --warn:#9E2B3F; --amber:#8A6A18;
+    --aTint:#F0F4F3; --bTint:#F3F1EE;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+       line-height:1.68;padding:30px 18px 80px;font-size:14px}
+  .wrap{max-width:1000px;margin:0 auto}
+
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--soft);margin:0 0 8px}
+  h1{font-size:27px;font-weight:660;letter-spacing:-.022em;margin:0 0 12px;line-height:1.24}
+  .lede{font-size:14.5px;color:var(--soft);margin:0;max-width:64ch}
+  .lede b{color:var(--ink);font-weight:600}
+
+  /* 가용일 리본 */
+  .ribbon{margin:26px 0 8px;display:grid;grid-template-columns:76px repeat(10,1fr);
+          gap:3px;align-items:stretch}
+  .rlabel{font-family:var(--mono);font-size:10.5px;color:var(--soft);display:flex;align-items:center;
+          letter-spacing:.06em}
+  .day{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:6px 2px;
+       text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--soft);line-height:1.5}
+  .day b{display:block;font-size:12px;color:var(--ink);font-weight:600}
+  .cellx{border-radius:3px;border:1px solid var(--line);background:var(--panel);
+         min-height:26px;display:flex;align-items:center;justify-content:center;
+         font-family:var(--mono);font-size:10px;color:var(--soft)}
+  .cellx.on{background:var(--pick);border-color:var(--pick);color:#fff}
+  .cellx.off{background:repeating-linear-gradient(-45deg,#F7EFF1,#F7EFF1 4px,#EFDDE1 4px,#EFDDE1 8px);
+             border-color:#E3C9CF;color:var(--warn)}
+  .cellx.part{background:#FBF3DE;border-color:#E6D2A0;color:var(--amber)}
+  .legend{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.04em;margin:6px 0 0}
+
+  h2{font-size:17px;font-weight:650;letter-spacing:-.015em;margin:44px 0 6px;
+     padding-bottom:7px;border-bottom:1px solid var(--line)}
+  h2 .num{font-family:var(--mono);font-size:11px;color:var(--faint);margin-right:8px;letter-spacing:.1em}
+  h3{font-size:14px;font-weight:640;margin:24px 0 8px}
+  p{margin:0 0 12px}
+  .note{color:var(--soft)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);
+        border:1px solid var(--line);border-radius:5px;overflow:hidden;margin:12px 0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+     color:var(--soft);font-weight:500;background:#FAFBFB}
+  tr:last-child td{border-bottom:0}
+  td.date{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
+  tr.gone td{background:#FBF7F8;color:var(--faint)}
+  tr.gate td{background:#F5F8F7}
+  tr.gate td.date{color:var(--pick);font-weight:600}
+  .mark{color:var(--warn);font-weight:600}
+  .ok{color:var(--pick);font-weight:600}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  @media (max-width:780px){ .cols{grid-template-columns:1fr} .ribbon{grid-template-columns:60px repeat(10,1fr)} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .card .hd{padding:10px 13px;border-bottom:1px solid var(--line2);display:flex;align-items:baseline;gap:9px}
+  .card.a .hd{background:var(--aTint)} .card.b .hd{background:var(--bTint)}
+  .who{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+       background:var(--ink);color:#fff;padding:2px 6px;border-radius:3px}
+  .card .hd h4{margin:0;font-size:13.5px;font-weight:620;letter-spacing:-.01em}
+  .card ul{margin:0;padding:11px 13px 13px 30px}
+  .card li{margin-bottom:5px}
+  .card li:last-child{margin-bottom:0}
+  .file{font-family:var(--mono);font-size:11px;color:var(--pick);background:#F1F5F4;
+        padding:1px 5px;border-radius:3px;border:1px solid #DCE6E4;white-space:nowrap}
+
+  pre{background:#FAFBFB;border:1px solid var(--line);border-radius:5px;padding:12px 14px;
+      font-family:var(--mono);font-size:12px;line-height:1.8;overflow-x:auto;margin:12px 0;color:var(--ink)}
+  pre .c{color:var(--faint)}
+
+  .call{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--warn);
+        border-radius:5px;padding:13px 16px;margin:14px 0;font-size:13.5px}
+  .call.good{border-left-color:var(--pick)}
+  .call h4{margin:0 0 6px;font-size:13.5px;font-weight:650}
+  .call p:last-child{margin:0}
+
+  ul.check{list-style:none;padding:0;margin:12px 0;background:var(--panel);
+           border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  ul.check li{padding:9px 13px;border-bottom:1px solid var(--line2);font-size:13px;
+              display:flex;gap:10px;align-items:flex-start}
+  ul.check li:last-child{border-bottom:0}
+  ul.check li::before{content:"☐";font-family:var(--mono);color:var(--faint);flex:none}
+
+  footer{margin-top:52px;padding-top:14px;border-top:1px solid var(--line);
+         font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">NHN NAN 2026 사전 과제 · 2인 팀 · 마감 2026-08-10(월)</p>
+  <h1>역할 분담과 역산 일정</h1>
+  <p class="lede">기준 문서는 <b>기획_초안.md</b>(주행 + 폰 이원화 안)입니다.
+  <b>game-overview-draft.md</b>의 “선답변 후확인” 안은 폐기하고, 거기서 살아남은 코어 하나
+  — 전방과 폰을 번갈아 본다 — 만 가져옵니다. 둘 다 게임 제작은 처음이고 바이브 코딩을 전제로 합니다.</p>
+
+  <h2><span class="num">01</span>남은 시간</h2>
+
+  <div class="ribbon">
+    <div class="rlabel"></div>
+    <div class="day">토<b>8/1</b></div><div class="day">일<b>8/2</b></div><div class="day">월<b>8/3</b></div>
+    <div class="day">화<b>8/4</b></div><div class="day">수<b>8/5</b></div><div class="day">목<b>8/6</b></div>
+    <div class="day">금<b>8/7</b></div><div class="day">토<b>8/8</b></div><div class="day">일<b>8/9</b></div>
+    <div class="day">월<b>8/10</b></div>
+  </div>
+  <div class="ribbon">
+    <div class="rlabel">팀원 A</div>
+    <div class="cellx off">✕</div><div class="cellx off">✕</div><div class="cellx on">가능</div>
+    <div class="cellx on">가능</div><div class="cellx on">가능</div><div class="cellx on">가능</div>
+    <div class="cellx on">가능</div><div class="cellx on">가능</div><div class="cellx part">17시~</div>
+    <div class="cellx off">✕</div>
+  </div>
+  <div class="ribbon">
+    <div class="rlabel">팀원 B</div>
+    <div class="cellx off">✕</div><div class="cellx off">✕</div><div class="cellx on">가능</div>
+    <div class="cellx on">가능</div><div class="cellx on">가능</div><div class="cellx on">가능</div>
+    <div class="cellx on">가능</div><div class="cellx on">가능</div><div class="cellx on">가능</div>
+    <div class="cellx on">가능</div>
+  </div>
+  <p class="legend">■ 가능 　▨ 불가 　■ 일부만</p>
+
+  <p style="margin-top:16px">개발에 쓸 수 있는 날은 <b>8/3 ~ 8/6, 나흘</b>입니다.
+  그중 8/3 오전은 배포 파이프라인에 써야 하므로 <b>실질 기능 개발은 3.5일</b>입니다.
+  8/7은 빌드 동결, 8/8~8/9는 영상과 문서입니다. <span class="mark">버퍼는 0입니다.</span></p>
+
+  <div class="call">
+    <h4>구조상 주의</h4>
+    <p>A가 문서 취합과 데모 영상을 맡는데 8/9은 17시 이후뿐이고 8/10은 부재입니다.
+    따라서 <b>A의 8/9은 작업일이 아니라 인계 창구</b>이고, <b>제출 버튼은 B가 혼자 누릅니다.</b>
+    8/9 저녁에 B에게 넘어가지 않은 것은 제출물에서 빠집니다.</p>
+  </div>
+
+  <h2><span class="num">02</span>8/3 오전에 확정할 것</h2>
+  <p class="note">3.5일짜리 일정에 열어둔 채로 들어갈 수 없는 항목입니다. 둘이 같이 앉아서 한 번에 닫습니다.</p>
+
+  <table>
+    <tr><th>항목</th><th>확정안</th><th>이유</th></tr>
+    <tr><td>질문 방식</td><td><b>모달</b> · 뜨는 동안 이동 정지 + 6초 카운트다운</td>
+        <td>실시간은 이동·회피·읽기를 동시에 요구해 밸런싱 비용이 안 나옴. 모달은 판정이 단순하고 영상에서 문제 화면이 읽힘</td></tr>
+    <tr><td>오답 패널티</td><td><b>감속 3초 고정</b> (룰렛·카드 뽑기 없음)</td><td>연출 에셋 0</td></tr>
+    <tr><td>가속</td><td><b>게이지</b> · 정답 시 충전, Shift로 소비</td><td>정답이 주행 이득으로 돌아오는 고리. 이건 남겨야 게임이 됨</td></tr>
+    <tr><td>렌더러</td><td><b>renderer-comparison.html을 같이 보고 결정</b></td>
+        <td>회전을 되살릴 생각이 있으면 three.js, 아니면 Canvas 2D 유지. <span class="mark">8/6 이후 변경 금지</span></td></tr>
+    <tr><td>빌드</td><td>번들러 없음 · HTML + ES 모듈 + Canvas</td><td>Vite를 끼우면 Pages base 경로 문제로 마지막 날 백지가 됨</td></tr>
+  </table>
+
+  <h3>잘라낸 것</h3>
+  <table>
+    <tr><th>잘라냄</th><th>대체</th><th>아끼는 시간</th></tr>
+    <tr><td>좌회전 · 우회전 카메라 전환</td><td>직선 복도 + 3통로 갈림길 <span class="note">(프로토타입에 이미 있음)</span></td><td>하루 이상</td></tr>
+    <tr><td>룰렛 / 카드 뽑기</td><td>감속 고정</td><td>반나절</td></tr>
+    <tr><td>스크랩 5칸</td><td>질문 시 관련 대화 원문 자동 하이라이트</td><td>반나절</td></tr>
+    <tr><td>역할 여러 종 · 스테이지 3분 · 질문 6~10개</td><td>직장인 1종 · 90초 · 질문 4개</td><td>—</td></tr>
+  </table>
+  <p class="note">유지: 자동 전진 · 좌우 이동 · 보행자 충돌 감속 · 질문 모달 · 게이지 가속. 에셋은 도형과 텍스트 기준.</p>
+
+  <h2><span class="num">03</span>역할 분담</h2>
+  <p>둘 다 AI로 코드를 뽑을 예정이므로, <b>분담 기준은 난이도가 아니라 파일</b>입니다.
+  같은 파일을 둘이 AI에게 던지면 서로의 코드를 덮어씁니다. 경계선은 <b>“화면 위 / 폰 안”</b>입니다.</p>
+
+  <div class="cols">
+    <div class="card a">
+      <div class="hd"><span class="who">A</span><h4>주행 레이어 · 대외 산출물</h4></div>
+      <ul>
+        <li>복도 렌더, 자동 전진, 좌우 이동, 3통로 갈림길 판정 <span class="file">world.js</span></li>
+        <li>보행자 충돌 감속, 게이지 소비 가속 <span class="file">world.js</span></li>
+        <li>게임 루프, 입력 라우팅, 제한시간, HUD, 결과 화면 <span class="file">main.js</span></li>
+        <li><span class="file">docs/ai_usage_log.md</span> 매일 기록</li>
+        <li>데모 영상 촬영 · 편집 · 업로드</li>
+        <li>문서 3 · 4 · 5번 취합</li>
+      </ul>
+    </div>
+    <div class="card b">
+      <div class="hd"><span class="who">B</span><h4>폰 레이어 · 콘텐츠 · 배포 · 제출</h4></div>
+      <ul>
+        <li>폰 UI, 대화 스트림 (사람·알림 색 구분, 흐름 속도) <span class="file">phone.js</span></li>
+        <li>질문 모달, 보기 3개, 정오답 처리, 감속 패널티 <span class="file">quiz.js</span></li>
+        <li>대화 로그·질문·정답 근거·함정 단서 <b>AI 생성 → 정적 JSON</b> <span class="file">content/day1.json</span></li>
+        <li>저장소 + GitHub Pages 배포, 모바일 브라우저 확인</li>
+        <li>문서 3 · 4 · 5번 <b>기술 파트 초안</b></li>
+        <li><b>8/10 최종 제출</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="note">A의 원래 할 일 목록에서 <b>에셋 제작은 삭제</b>합니다. A의 구현 지분은 8/3~8/6에 몰아넣고,
+  <b>8/7부터 A는 코드에서 손을 뗍니다.</b></p>
+
+  <h3>접점은 네 개뿐</h3>
+  <p>이 네 개만 <span class="file">state.js</span>에 두고 나머지는 서로 건드리지 않습니다.
+  <b>8/3 오전에 실제 파일로 먼저 커밋</b>하세요. 문서로 합의하면 지켜지지 않지만, 파일이 이미 있으면 둘 다 그걸 import 합니다.</p>
+<pre>state.speedMul   <span class="c">// A가 감속 패널티로 낮춤 → B가 주행 속도에 곱함</span>
+state.gauge      <span class="c">// A가 정답 +, 오답 − → B가 Shift로 소비</span>
+state.quizOpen   <span class="c">// A가 true로 → B는 이동·입력 정지</span>
+onGate(cb)       <span class="c">// B가 갈림길 진입 시 호출 → A가 질문 띄움</span></pre>
+
+  <h2><span class="num">04</span>일정</h2>
+  <table>
+    <tr><th>날짜</th><th>팀원 A</th><th>팀원 B</th><th>그날의 완료 판정</th></tr>
+    <tr class="gone"><td class="date">8/1~8/2</td><td colspan="2">둘 다 불가</td><td>없는 날</td></tr>
+    <tr class="gate"><td class="date">8/3 월</td>
+      <td><b>오전: 둘이 같이</b> — 확정 5건, 저장소 + Pages 관통, <span class="file">state.js</span> 커밋 (2h)<br>이후: 프로토타입 모듈 분리, 3통로 판정</td>
+      <td>오후: 폰 UI, 대화 스트림</td>
+      <td><b class="ok">시크릿 창에서 Pages URL이 열린다</b></td></tr>
+    <tr><td class="date">8/4 화</td><td>보행자 충돌, 게이지 가속, 제한시간</td><td>질문 모달, 보기 3개, 정오답, 감속</td><td>접점 4개 연결</td></tr>
+    <tr><td class="date">8/5 수</td><td>HUD, 결과 화면, 90초 스테이지 조립</td><td>질문 4개 + 대화 로그 AI 생성 투입</td><td><b class="ok">시작 → 플레이 → 종료가 한 바퀴 돈다</b></td></tr>
+    <tr><td class="date">8/6 목</td><td>감속량·게이지 밸런싱, 문서 3종 초안</td><td>대화 속도·난이도 밸런싱, 타 기기·모바일 확인</td><td>남에게 보여줄 수 있다</td></tr>
+    <tr class="gate"><td class="date">8/7 금</td><td>영상 콘티, 문서 본문 착수</td><td><b>빌드 동결</b> · 치명 버그만</td><td><span class="mark">이후 기능 추가 없음</span></td></tr>
+    <tr><td class="date">8/8 토</td><td><b>영상 촬영 · 업로드</b>, 문서 본문 완성</td><td>문서 기술 파트, 링크 접근성 점검</td><td><b class="ok">YouTube 링크 확보</b></td></tr>
+    <tr class="gate"><td class="date">8/9 일</td><td>17시 이후: 검수 + <b>전량 인계</b></td><td>오전에 PDF 3종 뽑아두고 A 검수 대기</td><td><b class="ok">B 혼자 제출할 수 있는 상태</b></td></tr>
+    <tr class="gate"><td class="date">8/10 월</td><td>부재</td><td><b>오전 중 제출</b></td><td>완료</td></tr>
+  </table>
+
+  <h3>8/9 인계 목록 <span class="note" style="font-weight:400">— A → B. 이게 안 넘어가면 제출 불가</span></h3>
+  <ul class="check">
+    <li>YouTube 링크 + 원본 영상 파일</li>
+    <li>문서 3 · 4 · 5번 <b>PDF와 원본 둘 다</b> — 오타 하나 나면 B가 고쳐야 함</li>
+    <li>저장소 권한, 신청서 초안</li>
+    <li>A 계정으로 만든 것이 있으면 그 로그인 수단</li>
+  </ul>
+
+  <h2><span class="num">05</span>제출물 5종</h2>
+  <p class="note">하나라도 누락되면 심사 제외입니다.</p>
+  <table>
+    <tr><th>#</th><th>제출물</th><th>형태</th><th>담당</th><th>기한</th></tr>
+    <tr><td>1</td><td>플레이 가능한 빌드 + 전체 소스</td><td>웹 빌드 (GitHub Pages)</td><td>B</td><td class="date">8/7 동결</td></tr>
+    <tr><td>2</td><td>플레이 동영상 (30~60초)</td><td>YouTube 링크</td><td>A</td><td class="date">8/8</td></tr>
+    <tr><td>3</td><td>게임 소개 및 설명 문서</td><td>PDF</td><td>A 취합 / B 기술 파트</td><td class="date">8/9</td></tr>
+    <tr><td>4</td><td>AI 활용 기술 문서</td><td>PDF</td><td>A</td><td class="date">8/9</td></tr>
+    <tr><td>5</td><td>팀원 롤 기술서</td><td>PDF</td><td>A</td><td class="date">8/9</td></tr>
+    <tr><td>—</td><td>신청서 제출</td><td>대회 페이지</td><td>B</td><td class="date">8/10</td></tr>
+  </table>
+
+  <h3>제출 직전 최종 점검 <span class="note" style="font-weight:400">— 로그아웃 상태에서 확인</span></h3>
+  <ul class="check">
+    <li>GitHub 저장소 public (private이면 <span class="file">dl_gameai_reviewer@nhn.com</span> 초대)</li>
+    <li>Pages 링크가 시크릿 창에서 열리고 바로 플레이됨</li>
+    <li>결제 · 계정 가입 · API 키 입력 없이 플레이 가능</li>
+    <li>YouTube 영상이 “일부 공개” 이상이고 링크로 재생됨</li>
+    <li>커밋 기록이 남아 있음 (squash / force push 하지 않았음)</li>
+    <li>외부 에셋 출처 · 라이선스가 문서 4번에 전부 기재됨</li>
+  </ul>
+
+  <h2><span class="num">06</span>이 계획이 깨지는 지점</h2>
+
+  <div class="call">
+    <h4>8/5 — 두 사람의 코드가 처음 합쳐지는 날</h4>
+    <p>각자 AI에게 따로 짜게 한 코드라 접점 4개의 이름과 타이밍이 어긋나 있을 가능성이 높습니다.
+    그래서 <b>state.js를 8/3 오전에 실물로 먼저 커밋</b>합니다.
+    8/5 밤에 한 바퀴가 안 돌면 8/6에 기능을 더 넣지 말고
+    <b>질문 4개 → 2개, 90초 → 60초</b>로 줄이세요. 완성도가 아니라 “끝까지 돌아가는 것”만 지킵니다.</p>
+  </div>
+
+  <div class="call">
+    <h4>8/8 — A가 영상과 문서를 같은 날 끝내야 함</h4>
+    <p>8/9 저녁 몇 시간은 <b>검수 시간이지 제작 시간이 아닙니다.</b>
+    영상 콘티는 8/7에 미리 짜두고 8/8에는 찍기만 하도록 하세요.</p>
+  </div>
+
+  <div class="call good">
+    <h4>매일 5분 — AI_활용_로그.md</h4>
+    <p>제출물 4번을 쓸 재료는 이 로그 하나뿐입니다. 작업하면서 즉시 적지 않으면
+    마감 직전에 복원할 수 없습니다. 외부 에셋도 <b>쓰는 순간</b> 출처를 남기세요.</p>
+  </div>
+
+  <footer>작성 2026-08-01 · 기준 문서 기획_초안.md · 사실관계 충돌 시 대회_정보.md 우선<br>
+  2026-08-03 정정 — 구현 담당 A/B가 실제와 반대로 적혀 있어 §03·§04에서 맞바꿨습니다
+  (역할_분담.txt 기준: A=맵·주행, B=대화·질문 이벤트). 대외 산출물 담당과 일정은 원안 그대로입니다.
+  코드 소유권 정본은 AGENTS.md §1입니다.</footer>
+
+</div>
+</body>
+</html>
