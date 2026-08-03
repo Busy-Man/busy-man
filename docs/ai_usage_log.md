@@ -49,8 +49,8 @@
 
 아래 형식으로 `L-001`부터 이어 붙인다.
 
-> 엔트리가 가리키는 `ai-log/raw/YYYY-MM-DD.md`는 **공개 여부 미결로 저장소에 없다.**
-> 각자 로컬에만 있다. 사유와 해제 조건은 `ai-log/raw/README.md` 참조.
+> 엔트리가 가리키는 `ai-log/raw/YYYY-MM-DD.md`는 **저장소에 없다. 노션에 보관한다.**
+> 각자 로컬에 쌓이고, 문서 작성 시 내려받는다. 사유는 `ai-log/raw/README.md` 참조.
 
 <!--
 ### L-0NN · YYYY-MM-DD · 영역
@@ -119,7 +119,7 @@
 
 **산출물** — 커밋 `0a27d14` `44afc53` `2f5c1c0` `229bca7` `9ce58cf`
 
-- `.gitignore` — `.omc/` 제외. `docs/ai-log/raw/`의 날짜 파일도 공개 여부 미결로 보류 중
+- `.gitignore` — `.omc/` 제외. `docs/ai-log/raw/`의 날짜 파일은 노션 보관 결정에 따라 제외
 - `.gitattributes` — LF 통일. 8/5 병합일에 줄바꿈 충돌이 진짜 충돌과 섞이는 것 방지
 - `src/{state,main,world,phone,quiz}.js` — 담당자와 착수 전 확인사항만. **실코드 3줄**
 - `index.html` — `./src/main.js`를 module로 로드해 Pages 하위 경로 검증
