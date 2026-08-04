@@ -410,9 +410,7 @@ import 한다"고 적고 있다.
 
 | 파일 경로 | 종류 | 출처 URL | 라이선스 | 저작자 표기 의무 | 비고 |
 |---|---|---|---|---|---|
-| | | | | | |
-
-*(현재 없음. **three.js 도입이 확정됐으므로 `vendor/` 파일이 들어오는 커밋에서 행을 추가한다** — 버전·MIT·출처 URL.)*
+| `vendor/three.module.js` | 라이브러리(렌더러) | https://unpkg.com/three@0.160.0/build/three.module.js | MIT | 파일 내 라이선스 헤더 유지 | three.js r160 ES 모듈 빌드. `world.js`에서 상대경로로 import |
 
 ## §5. 게임 내 AI 기능 — 미탑재 판단
 
