@@ -201,10 +201,15 @@
   <h3>접점은 네 개뿐</h3>
   <p>이 네 개만 <span class="file">state.js</span>에 두고 나머지는 서로 건드리지 않습니다.
   <b>8/3 오전에 실제 파일로 먼저 커밋</b>하세요. 문서로 합의하면 지켜지지 않지만, 파일이 이미 있으면 둘 다 그걸 import 합니다.</p>
-<pre>state.speedMul   <span class="c">// A가 감속 패널티로 낮춤 → B가 주행 속도에 곱함</span>
-state.gauge      <span class="c">// A가 정답 +, 오답 − → B가 Shift로 소비</span>
-state.quizOpen   <span class="c">// A가 true로 → B는 이동·입력 정지</span>
-onGate(cb)       <span class="c">// B가 갈림길 진입 시 호출 → A가 질문 띄움</span></pre>
+<pre>state.speedMul   <span class="c">// B가 오답 감속으로 낮춤 → A가 주행 속도에 곱함</span>
+state.gauge      <span class="c">// B가 정답 시 + → A가 Shift로 소비</span>
+state.quizOpen   <span class="c">// B가 모달 뜨면 true → A는 이동·입력 정지</span>
+onGate(cb)       <span class="c">// B가 등록 → A가 갈림길에서 fireGate 로 발화</span></pre>
+  <p class="note"><b>2026-08-04 정정</b> — 위 네 줄의 A/B가 §03 역할 표와 반대로 적혀 있었습니다.
+  8/3에 구현 담당을 맞바꿀 때 이 블록만 빠졌고, <span class="file">AGENTS.md</span> §2가 그것을
+  복사했습니다. 라벨만 뒤집혀 있었으므로 방향의 의미는 바뀌지 않습니다.
+  의미 규약(<span class="file">speedMul</span>은 퀴즈 전용, <span class="file">gauge</span>는
+  정답에만, <span class="file">onGate</span>의 발화 주체)은 AGENTS.md §2가 정본입니다.</p>
 
   <h2><span class="num">04</span>일정</h2>
   <table>
@@ -278,7 +283,9 @@ onGate(cb)       <span class="c">// B가 갈림길 진입 시 호출 → A가 �
   <footer>작성 2026-08-01 · 기준 문서 기획_초안.md · 사실관계 충돌 시 대회_정보.md 우선<br>
   2026-08-03 정정 — 구현 담당 A/B가 실제와 반대로 적혀 있어 §03·§04에서 맞바꿨습니다
   (역할_분담.txt 기준: A=맵·주행, B=대화·질문 이벤트). 대외 산출물 담당과 일정은 원안 그대로입니다.
-  코드 소유권 정본은 AGENTS.md §1입니다.</footer>
+  코드 소유권 정본은 AGENTS.md §1입니다.<br>
+  2026-08-04 정정 — 8/3 정정에서 §03의 <b>접점 블록이 빠져</b> A/B가 뒤집힌 채 남아 있었고,
+  AGENTS.md §2가 그것을 복사했습니다. 두 문서를 함께 바로잡았습니다.</footer>
 
 </div>
 </body>

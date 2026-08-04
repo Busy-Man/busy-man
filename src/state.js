@@ -1,13 +1,73 @@
 // 공유 상태 — A와 B의 유일한 접점.
 // 담당: 공동. 이 파일을 고칠 때는 반드시 상대에게 알린다.
 //
-// 8/3 오전 팀 합의로 아래 4개를 여기에 구현한다. 그때까지 비워 둔다.
+// 문서로 합의하면 지켜지지 않는다. 파일이 있으면 둘 다 이걸 import 한다
+// — docs/team-plan.html §03 이 8/5 병합 리스크의 대응책으로 지목한 것이 이 파일이다.
+//
 // 여기 없는 값을 서로 주고받지 않는다. 접점이 5개가 되는 순간
 // 각자 AI에게 던진 코드가 서로를 덮어쓴다.
 //
-//   state.speedMul   A가 감속 패널티로 낮춤    → B가 주행 속도에 곱함
-//   state.gauge      A가 정답 +, 오답 −        → B가 Shift로 소비
-//   state.quizOpen   A가 true로 설정           → B는 이동·입력 정지
-//   onGate(cb)       B가 갈림길 진입 시 호출   → A가 질문 띄움
-//
-// 근거: docs/team-plan.html §03
+// 근거: AGENTS.md §2
+
+/**
+ * 공유 값 세 개.
+ *
+ * 객체 하나를 통째로 주고받는다. `export let speedMul = 1` 처럼 원시값을 내보내면
+ * import 한 쪽의 대입이 ES 모듈 바인딩 규칙상 막혀 **조용히 무시된다** —
+ * 8/5에 "값을 넣었는데 안 먹는다"로 반나절을 쓰게 되는 형태다.
+ */
+export const state = {
+  /**
+   * 퀴즈 패널티 전용 채널. B가 오답·무응답에 낮추고 시간이 지나면 1로 되돌린다.
+   *
+   * 보행자 충돌 감속을 여기 쓰지 않는다. 기록자가 둘이 되면 각자의 복귀 타이머가
+   * 서로를 지운다 — 늦게 걸린 패널티가 먼저 걸린 타이머에 조기 해제되고,
+   * 반대로 충돌이 퀴즈 감속을 지워 무적 구간이 생긴다. 재현이 간헐적이라 원인을 못 찾는다.
+   * 충돌 감속은 world.js 안에 두고 `SPEED * state.speedMul * collisionMul` 로 곱한다.
+   */
+  speedMul: 1,
+
+  /**
+   * B가 정답에 +1, A가 Shift로 소비한다.
+   * 오답에는 건드리지 않는다 — AGENTS.md §3 이 오답 패널티를 감속으로 고정했고,
+   * 게이지가 0인 초반에는 게이지를 깎는 벌이 아무 일도 하지 않는다.
+   */
+  gauge: 0,
+
+  /** B가 모달을 띄우면 true. A는 이 동안 이동·입력을 멈춘다. */
+  quizOpen: false
+};
+
+// ── 갈림길 신호 ─────────────────────────────────────────────────────────────
+// A가 발화하고 B가 듣는다. 등록(onGate)과 발화(fireGate)는 **한 접점의 두 짝**이다.
+// 표에 소유자를 안 적어 두면 양쪽이 서로를 기다리는 코드를 쓰게 되고,
+// 그때는 둘 다 정상으로 보이며 예외도 나지 않는다.
+
+const gateCbs = [];
+
+/**
+ * 갈림길에 진입했을 때 부를 콜백을 등록한다. **B(quiz.js)가 부른다.**
+ * @param {(gateIndex?: number) => void} cb
+ */
+export function onGate(cb) {
+  if (typeof cb !== 'function') {
+    throw new TypeError('onGate: 콜백 함수를 넘길 것');
+  }
+  gateCbs.push(cb);
+}
+
+/**
+ * 갈림길 진입을 알린다. **A(world.js)가 부른다.**
+ * @param {number} [gateIndex] 몇 번째 갈림길인지. 없어도 된다
+ */
+export function fireGate(gateIndex) {
+  // 콜백 하나가 던져도 나머지는 돌아야 한다. 한쪽 예외가 전체를 멈추면
+  // 8/5에 "게이트가 한 번은 되는데 그다음부터 안 된다"로 나타나 원인을 못 찾는다.
+  for (const cb of gateCbs) {
+    try {
+      cb(gateIndex);
+    } catch (e) {
+      console.error('[state] onGate 콜백에서 예외', e);
+    }
+  }
+}
