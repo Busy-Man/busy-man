@@ -127,7 +127,12 @@ type(scope): 요약
 **규칙**
 
 - `main`에 직접 push 하지 않는다. 브랜치 → PR → 병합
-- **squash 와 force-push 금지.** 커밋 기록이 사라지면 심사 요건 위반이다 (`docs/team-plan.html` §05)
+- **squash 병합·rebase·force-push 금지.** 커밋 기록이 사라지면 심사 요건 위반이다
+  (`docs/team-plan.html` §05)
+- **충돌은 `git merge main`으로 푼다.** rebase는 `--force-with-lease`를 붙여도 해시를 갈아끼우고,
+  훅이 커밋 직후 `docs/ai-log/raw/`에 해시를 박으므로 PR을 열기 전이라도 인용이 끊긴다
+- 실제로 8/4에 PR #5를 머지 직전 rebase해 인용 7곳이 죽었다. lease는 정상 동작했다 —
+  lease가 막는 것은 남의 push를 덮어쓰는 사고이지 해시 교체가 아니다
 - 브랜치 이름은 `feat/…` `fix/…` `chore/…` `docs/…`
 
 커밋을 나누고 메시지·PR 본문을 쓰는 일은 `/pr-commit`이 해준다. 규칙은 여기 있고, 절차는 거기 있다.
