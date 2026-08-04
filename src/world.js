@@ -2,6 +2,9 @@
 //                보행자 충돌 감속, 게이지 소비 가속.
 // 담당: A
 //
-// 착수 전 확인: 렌더러(Canvas 2D vs three.js)는 8/3 오전 팀 결정 사항이다.
-// 결정 전에 렌더 코드를 쓰면 버려진다. docs/renderer-comparison.html 참조.
-// 기존 구현은 prototype/busy-man-prototype.html 에 있다 (382줄, 단일 파일).
+// 렌더러는 three.js로 확정됐다. 저장소에 동봉한 vendor/ 파일을 상대경로로 부른다 —
+// CDN을 쓰면 심사 당일 외부 서버 상태에 게임이 종속된다. 결정 근거는
+// docs/renderer-comparison.html, 규약은 AGENTS.md §3.
+//
+// prototype/busy-man-prototype.html 에 복도·보행자·게이트가 이미 구현돼 있으나
+// Canvas 2D 자체 투영이라 그대로 옮겨오지 못한다. 형태와 수치만 참고한다.
