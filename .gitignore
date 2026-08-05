@@ -35,4 +35,5 @@ docs/ai-log/raw/*.md
 
 # --- 커밋하는 것 (참고) -----------------------------------------------------
 # docs/ai-log/specs/   AI가 만든 명세. .omc/에 두면 사라진다.
-# .claude/settings.json, .claude/skills/   팀 공유 자산이다.
+# .agents/             훅·스킬 정본. 도구 중립이라 여기 둔다.
+# .claude/settings.json, .claude/skills/, .codex/hooks.json   팀 공유 자산이다.
