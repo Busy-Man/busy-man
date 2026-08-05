@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>busy-man — phone.js · quiz.js 검증 하네스</title>
+<!--
+  임시 검증 페이지. 8/7 빌드 동결 전에 dev/ 통째로 지운다.
+
+  ⚠ 여기 있는 복도·보행자·게이트는 **가짜다.** 진짜는 A가 three.js로 만드는 src/world.js 다.
+     이 캔버스는 phone.js·quiz.js 가 실제 주행 위에서 어떻게 보이는지 확인하려고
+     prototype/busy-man-prototype.html 의 투영 수식만 가져다 급조한 것이다.
+     **절대로 src/ 로 옮기지 않는다.** 옮기는 순간 A의 world.js 와 충돌한다.
+
+     그리고 여기 게이트는 **갈림길**이지 질문 트리거가 아니다. 질문은 quiz.js 가 자기 주기로 띄운다.
+
+  검증 대상은 폰과 모달뿐이다. 접점 4개(speedMul · gauge · quizOpen · onGate)는
+  **src/state.js 의 실물을 그대로 쓴다.** 8/4 밤에는 더미였는데, 그때는 state.js 가
+  비어 있었기 때문이다. 지금은 실물이 있으므로 더미를 유지하면 하네스가 통과해도
+  실제 배선에서 깨지는 자리가 남는다 — A 작업이 끝났을 때 합칠 비용을 여기서 미리 낸다.
+-->
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0E1013;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif}
+  #cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+
+  /* HUD — 대역 10~99. 폰은 100~199, 모달은 200~299 */
+  .hud{position:fixed;z-index:20;color:#E8EBEF;text-shadow:0 1px 3px rgba(0,0,0,.5);
+       font-variant-numeric:tabular-nums;pointer-events:none}
+  .hud-tl{top:18px;left:20px}
+  .hud-time{font-size:30px;font-weight:650;letter-spacing:-.02em;line-height:1}
+  .hud-sub{margin-top:6px;font-size:12px;color:#98A0AA;
+           font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .hud-sub .warn{color:#E4738C}
+  .hud-tr{top:18px;right:20px;text-align:right}
+  .hud-label{font-size:10.5px;color:#98A0AA;letter-spacing:.1em;margin-bottom:5px}
+  .pips{display:flex;gap:5px;justify-content:flex-end}
+  .pip{width:26px;height:8px;border-radius:2px;background:rgba(255,255,255,.14)}
+  .pip.on{background:#5DCAA5}
+  .hint{position:fixed;z-index:20;left:50%;transform:translateX(-50%);top:22px;
+        font-size:12.5px;color:#B9C0C8;background:rgba(14,16,19,.6);
+        padding:6px 12px;border-radius:20px;pointer-events:none;
+        transition:opacity .4s}
+
+  .banner{position:fixed;z-index:30;left:0;right:0;top:38%;text-align:center;
+          pointer-events:none;opacity:0;transition:opacity .18s}
+  .banner.show{opacity:1}
+  .banner b{display:inline-block;font-size:26px;font-weight:650;color:#fff;
+            background:rgba(163,50,74,.86);padding:10px 22px;border-radius:6px}
+
+  /* 디버그 패널 — 수용 기준 확인용. 게임 화면을 가리지 않게 접어 둔다 */
+  .dbg{position:fixed;z-index:50;left:16px;bottom:16px;width:300px;
+       background:rgba(18,21,25,.94);border:1px solid #2A2F36;border-radius:8px;
+       color:#C9D0D8;font-size:12px}
+  .dbg summary{cursor:pointer;padding:8px 12px;list-style:none;color:#8A929C;
+               letter-spacing:.06em;font-size:10.5px}
+  .dbg summary::-webkit-details-marker{display:none}
+  .dbg .body{padding:0 12px 12px}
+  .dbg .row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:9px;
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#8A929C}
+  .dbg .row b{color:#E8EBEF;font-weight:600}
+  .dbg .row .hot{color:#E4738C}
+  .dbg button{font:inherit;font-size:11.5px;padding:5px 9px;margin:0 5px 5px 0;
+              background:#232830;border:1px solid #363D46;border-radius:4px;
+              color:#C9D0D8;cursor:pointer}
+  .dbg button:hover{background:#2C323B}
+  .dbg label{display:block;margin-top:7px;color:#8A929C}
+  .dbg .log{margin-top:8px;color:#7E8892;line-height:1.5;min-height:2.4em}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="hud hud-tl">
+  <div class="hud-time" id="h-time">90.0</div>
+  <div class="hud-sub">
+    부딪힘 <span id="h-hit">0</span> ·
+    속도 <span id="h-speed">×1.00</span>
+    <span id="h-slow" class="warn"></span>
+  </div>
+</div>
+
+<div class="hud hud-tr">
+  <div class="hud-label">GAUGE</div>
+  <div class="pips" id="h-pips"></div>
+</div>
+
+<div class="hint" id="hint"><b>A</b> <b>D</b> 이동 · <b>Space</b> 누르고 있으면 정면을 봅니다 · <b>Shift</b> 부스트</div>
+<div class="banner" id="banner"><b id="banner-t"></b></div>
+
+<details class="dbg">
+  <summary>검증 패널 (클릭해서 펼치기)</summary>
+  <div class="body">
+    <div class="row">
+      <span>speedMul <b id="g-speed">1.00</b></span>
+      <span>gauge <b id="g-gauge">0</b></span>
+      <span>quizOpen <b id="g-open">false</b></span>
+    </div>
+    <div class="row">
+      <span>마지막 문자 <b id="g-since">0.0</b>s 전</span>
+      <span>에러 <b id="g-err">0</b></span>
+    </div>
+    <div>
+      <button id="b-toggle">폰 토글</button>
+      <button id="b-msg">문자 +1</button>
+      <button id="b-map">길 안내</button>
+      <button id="b-gate">갈림길 발화</button>
+      <button id="b-reset">리셋</button>
+      <button id="b-throw">주입 없이 mount</button>
+    </div>
+    <div class="log" id="log">—</div>
+  </div>
+</details>
+
+<script type="module">
+const el = id => document.getElementById(id);
+const say = m => { el('log').textContent = m; };
+
+// ── 에러 계기 ───────────────────────────────────────────────
+// 화면에 숫자로 띄운다. 콘솔을 눈으로 세면 놓친다.
+// import 보다 위에 둔다 — 모듈을 못 받는 것이 가장 조용한 실패라서, 그때도 계기가 돌아야 한다.
+let errors = 0;
+function bumpError(what) {
+  errors++;
+  el('g-err').textContent = errors;
+  el('g-err').className = 'hot';
+  console.error('[harness]', what);
+}
+addEventListener('error', e => bumpError(e.message));
+addEventListener('unhandledrejection', e => bumpError(e.reason));
+
+// ── 모듈 ────────────────────────────────────────────────────
+// 매번 새로 받는다. http-server 의 기본 Cache-Control 이 max-age=3600 이라 한 번 캐시되면
+// 서버를 -c-1 로 다시 띄워도 브라우저가 서버에 묻지 않는다. 그러면 고친 코드가 안 도는데
+// 화면에는 아무 말도 없어서 원인을 코드에서 찾게 된다. 8/5에 두 번 걸렸다.
+//
+// state.js 를 여기서만 받는 것이 중요하다. phone.js·quiz.js 는 주입받으므로
+// 캐시 무력화로 사본이 둘 생겨 서로 다른 state 를 보는 사고가 나지 않는다.
+const V = '?v=' + Date.now();
+const { state, fireGate } = await import('./../src/state.js' + V);
+const { mountPhone }      = await import('./../src/phone.js' + V);
+const { mountQuiz }       = await import('./../src/quiz.js' + V);
+
+// ── 가짜 복도 ───────────────────────────────────────────────
+// 수식 출처: prototype/busy-man-prototype.html. 진짜는 A의 world.js 다.
+const cv = el('cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, CX = 0, CY = 0, FL = 0;
+function resize() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight; CX = W / 2; CY = H / 2;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  FL = (W / 2) / Math.tan((75 * Math.PI / 180) / 2);
+}
+addEventListener('resize', resize);
+resize();
+
+const NEAR = 0.12, EYE = 1.62, HALF = 3.5, CEIL = 3.0;
+// 스테이지 상한 150초에 맞춘다 (AGENTS.md §3, 등급 잠정). 8/4 밤에는 90초/480이었는데,
+// 그 길이로는 문자 58개도 질문 20개도 끝까지 안 나와서 콘텐츠 분량을 확인할 수가 없다.
+const SPEED = 6.0, LIMIT = 150, GOAL_Z = SPEED * LIMIT;
+const PITCH_REST = 0.72, PITCH_TOP = 0.03, PITCH_UP = 2.4, PITCH_DOWN = 1.7;
+const BOOST_SEC = 3.0;                      // 가속 3초 — AGENTS.md §3 확정
+
+// 갈림길이다. **질문과 아무 관계가 없다** — 질문은 quiz.js 가 자기 주기로 띄운다.
+// 8/4 판은 이 배열이 곧 질문 트리거였고, 그래서 질문 수가 맵 구조에 묶여 있었다.
+const GATE_Z = [];
+for (let z = 120; z < GOAL_Z - 60; z += 150) GATE_Z.push(z);
+const C = { bg:'#12161B', floor:'#1B2027', floor2:'#161A20', wall:'#232932',
+            wall2:'#1D222A', arch:'#39424E', ped:'#4C5561', pedHead:'#59636F',
+            accent:'#5DCAA5', warn:'#E4738C' };
+
+let px, pvx, pz, pitch, t, hits, stun, flash, boost, done, gates, peds;
+
+function resetWorld() {
+  px = 0; pvx = 0; pz = 0; pitch = PITCH_REST;  // 시작은 폰. Space 를 눌러야 정면이다
+  t = LIMIT; hits = 0; stun = 0; flash = 0; boost = 0; done = null;
+  gates = GATE_Z.map(z => ({ z, fired: false }));
+  peds = [];
+  for (let z = 20; z < GOAL_Z; z += 6 + Math.random() * 7) {
+    if (gates.some(g => Math.abs(g.z - z) < 9)) continue;
+    peds.push({ x: (Math.random() * 2 - 1) * 2.9, z, v: 1.4 + Math.random() * 0.9,
+                sway: Math.random() * 6.28 });
+  }
+}
+
+// ── 입력 ────────────────────────────────────────────────────
+// 실제 게임에서 이 라우팅은 main.js(A) 가 한다. 여기서는 그 자리를 흉내 낸다.
+// 글자키는 e.code 로 본다. e.key 는 자판 배열을 타서 한글 상태에서 A 가 'ㅁ' 으로 들어오고,
+// 그러면 이동이 안 되는데 콘솔에는 아무것도 안 찍혀 원인을 못 찾는다.
+const keys = {};
+const CODE = { KeyA: 'a', KeyD: 'd' };
+addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Shift') e.preventDefault();
+  if (state.quizOpen) return;            // 모달 중에는 이동·입력 정지 (AGENTS.md §2)
+  keys[CODE[e.code] || e.key] = true;
+  // 게이지 소비는 A 몫이다. 기록은 B(quiz.js) 하나뿐이라는 규약(AGENTS.md §2)이
+  // 여기서 깨지지 않는지도 같이 본다 — 여기가 유일한 소비처다.
+  if (e.key === 'Shift' && state.gauge > 0 && boost <= 0) { state.gauge--; boost = BOOST_SEC; }
+  if (e.code === 'KeyR') restart();
+});
+addEventListener('keyup', e => { keys[CODE[e.code] || e.key] = false; });
+
+// ── 부트 ────────────────────────────────────────────────────
+// 선언을 전부 위로 올린다 — 이전 판에서 watchStream() 이 아직 선언 안 된
+// let observer 를 건드려 TDZ 로 죽었고, 그 바람에 mountQuiz 가 실행되지 않아
+// 게이트를 눌러도 질문이 안 떴다.
+let phone = null, quiz = null, content = null;
+let phoneVisible = true, prevAhead = false, lastMsgAt = performance.now(), observer = null;
+let prevGauge = 0, gaugeDropAt = -1e9;
+
+function watchStream() {
+  if (observer) observer.disconnect();
+  const stream = document.querySelector('.bm-phone-stream');
+  if (!stream) return;
+  observer = new MutationObserver(() => { lastMsgAt = performance.now(); });
+  observer.observe(stream, { childList: true });
+}
+
+try {
+  const res = await fetch('./../content/day1.json');
+  if (!res.ok) throw new Error('day1.json ' + res.status);
+  content = await res.json();
+
+  // 모달 중 스트림 정지는 8/5에 「멈춘다」로 닫혔다 (AGENTS.md §3, docs/ui-spec.md).
+  // 8/4 밤에는 체크박스로 둘 다 보려던 자리였는데, 정해진 뒤로는 옵션이 남아 있는 것이
+  // 오히려 「아직 고를 수 있다」로 읽힌다.
+  // visible 기본값이 true 다. 기본이 폰이고 Space 가 정면이므로 여기서 false 를 주면
+  // 시작하자마자 폰이 미끄러져 내려간다.
+  phone = mountPhone(document.body, { content, state });
+  watchStream();
+  quiz = mountQuiz(document.body, { content, state });
+} catch (e) {
+  bumpError(e.message);
+  say('부트 실패 — ' + e.message);
+}
+
+// ── 조작 (검증 패널) ────────────────────────────────────────
+el('b-toggle').onclick = () => { phoneVisible = !phoneVisible; phone.setVisible(phoneVisible); };
+el('b-msg').onclick    = () => phone.pushMessage(content.messages[0]);
+// 길 안내는 AGENTS.md §3 의 「열림」이다. 수신부 확인용으로만 눌러 본다.
+el('b-map').onclick    = () => phone.pushMap(Math.floor(Math.random() * 3));
+// fireGate 가 던지지 않는지만 본다. 지금 듣는 쪽이 없어서 화면에는 아무 일도 안 일어난다 —
+// 그게 정상이다. 질문은 quiz.js 의 주기가 띄운다.
+el('b-gate').onclick   = () => { fireGate(); say('갈림길 발화 — 듣는 쪽이 없어 아무 일도 없는 것이 정상입니다'); };
+el('b-reset').onclick  = () => restart();
+
+// 주입을 빠뜨리면 조용히 아무 일도 안 일어나는 것이 최악이라 mount 가 일부러 throw 한다.
+// 그 동작 자체를 여기서 확인한다.
+el('b-throw').onclick = () => {
+  try { mountPhone(document.body); say('실패 — throw 하지 않았습니다'); }
+  catch (e) { say('통과 — mountPhone 이 throw 했습니다: ' + e.message); }
+};
+
+function restart() {
+  resetWorld();
+  if (phone) { phone.reset(); phoneVisible = true; prevAhead = false; }
+  if (quiz) quiz.reset();
+  state.speedMul = 1; state.gauge = 0; state.quizOpen = false;
+  prevGauge = 0; gaugeDropAt = -1e9;   // 리셋의 gauge=0 이 패널티 표시로 새지 않게
+  lastMsgAt = performance.now();
+  el('banner').classList.remove('show');
+  say('리셋 — 문자·퀴즈 인덱스·게이지가 초기 상태로 돌아갔습니다');
+}
+
+// ── 3D ──────────────────────────────────────────────────────
+function toCam(x, y, z) {
+  const rx = x - px, ry = y - EYE, rz = z - pz;
+  const c = Math.cos(pitch), s = Math.sin(pitch);
+  return { x: rx, y: ry * c + rz * s, z: -ry * s + rz * c };
+}
+function clipNear(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const ain = a.z >= NEAR, bin = b.z >= NEAR;
+    if (ain) out.push(a);
+    if (ain !== bin) {
+      const k = (NEAR - a.z) / (b.z - a.z);
+      out.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: NEAR });
+    }
+  }
+  return out;
+}
+function fog(hex, d) {
+  const k = Math.min(1, Math.max(0, (d - 8) / 60));
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const br = 18, bg = 22, bb = 27;
+  return `rgb(${Math.round(r + (br - r) * k)},${Math.round(g + (bg - g) * k)},${Math.round(b + (bb - b) * k)})`;
+}
+const polys = [];
+function quad(p, color) {
+  const cl = clipNear(p.map(v => toCam(v[0], v[1], v[2])));
+  if (cl.length < 3) return;
+  let d = 0; for (const v of cl) d += v.z; d /= cl.length;
+  polys.push({ d, pts: cl.map(v => ({ x: CX + v.x / v.z * FL, y: CY - v.y / v.z * FL })), color: fog(color, d) });
+}
+
+function scene() {
+  polys.length = 0;
+  const z0 = Math.floor(pz / 3) * 3;
+  for (let z = z0 - 3; z < z0 + 78; z += 3) {
+    if (z > GOAL_Z + 6) break;
+    const odd = ((z / 3) | 0) % 2;
+    quad([[-HALF,0,z],[HALF,0,z],[HALF,0,z+3],[-HALF,0,z+3]], odd ? C.floor : C.floor2);
+    const ws = odd ? C.wall : C.wall2;
+    quad([[-HALF,0,z],[-HALF,CEIL,z],[-HALF,CEIL,z+3],[-HALF,0,z+3]], ws);
+    quad([[ HALF,0,z],[ HALF,CEIL,z],[ HALF,CEIL,z+3],[ HALF,0,z+3]], ws);
+  }
+  for (const lx of [-1.15, 1.15])
+    for (let z = z0; z < z0 + 66; z += 6)
+      quad([[lx-0.05,0.01,z],[lx+0.05,0.01,z],[lx+0.05,0.01,z+3],[lx-0.05,0.01,z+3]], '#2C333C');
+
+  for (const g of gates) {
+    if (g.z < pz - 4 || g.z > pz + 76) continue;
+    for (const lx of [-3.5, -1.15, 1.15, 3.5])
+      quad([[lx-0.12,0,g.z],[lx+0.12,0,g.z],[lx+0.12,CEIL,g.z],[lx-0.12,CEIL,g.z]], C.arch);
+    quad([[-HALF,CEIL-0.45,g.z],[HALF,CEIL-0.45,g.z],[HALF,CEIL,g.z],[-HALF,CEIL,g.z]], C.arch);
+  }
+  for (const p of peds) {
+    const dz = p.z - pz;
+    if (dz < -1 || dz > 76) continue;
+    const x = p.x + Math.sin(p.sway) * 0.12;
+    quad([[x-0.32,0,p.z],[x+0.32,0,p.z],[x+0.32,1.42,p.z],[x-0.32,1.42,p.z]], C.ped);
+    quad([[x-0.17,1.42,p.z],[x+0.17,1.42,p.z],[x+0.17,1.76,p.z],[x-0.17,1.76,p.z]], C.pedHead);
+  }
+  if (GOAL_Z - pz < 76)
+    quad([[-HALF,0.02,GOAL_Z],[HALF,0.02,GOAL_Z],[HALF,0.02,GOAL_Z+1.2],[-HALF,0.02,GOAL_Z+1.2]], C.accent);
+
+  polys.sort((a, b) => b.d - a.d);
+  for (const q of polys) {
+    ctx.fillStyle = q.color;
+    ctx.beginPath();
+    ctx.moveTo(q.pts[0].x, q.pts[0].y);
+    for (let i = 1; i < q.pts.length; i++) ctx.lineTo(q.pts[i].x, q.pts[i].y);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+// ── 갱신 ────────────────────────────────────────────────────
+function step(dt) {
+  if (done) return;
+
+  // 모달이 뜬 동안 이동·시간 정지. 접점 quizOpen 의 소비자 동작이다.
+  if (state.quizOpen) return;
+
+  t -= dt;
+  if (stun > 0) stun -= dt;
+  if (boost > 0) boost -= dt;
+  if (flash > 0) flash -= dt * 2.5;
+
+  // 고개. 실제 게임에서는 main.js(A) 가 이 라우팅을 한다.
+  // **Space 를 누르고 있는 동안 정면을 보고, 떼면 폰이다.** 기본이 폰이다 —
+  // docs/기획_1차_보완.md 의 "space 눌렀을 때의 동작은 프로토타입과 동일" 이고,
+  // prototype/busy-man-prototype.html 은 "Space를 누르고 있으면 고개를 듭니다" 다.
+  const ahead = !!keys[' '];
+  const target = ahead ? PITCH_TOP : PITCH_REST;
+  const rate   = ahead ? PITCH_UP  : PITCH_DOWN;
+  pitch = pitch > target ? Math.max(target, pitch - rate * dt)
+                         : Math.min(target, pitch + rate * dt);
+  // 키 상태가 바뀔 때만 밀어 준다. 매 프레임 밀면 검증 패널의 [폰 토글] 이
+  // 다음 프레임에 곧바로 덮여서 눌러도 아무 일이 없는 것처럼 보인다.
+  if (phone && ahead !== prevAhead) {
+    prevAhead = ahead;
+    phoneVisible = !ahead;
+    phone.setVisible(!ahead);
+  }
+
+  // 좌우 직선 이동은 A·D 다 (docs/기획_1차_보완.md §조작). 방향키는 좌/우회전용인데
+  // 회전은 A의 world.js 몫이고 이 가짜 복도에는 갈림길이 없어서 여기 없다.
+  const L = keys['a'], R = keys['d'];
+  const acc = stun > 0 ? 0 : 26;
+  if (L && !R) pvx -= acc * dt; else if (R && !L) pvx += acc * dt;
+  else pvx -= Math.sign(pvx) * Math.min(Math.abs(pvx), 30 * dt);
+  pvx = Math.max(-4.6, Math.min(4.6, pvx));
+  px += pvx * dt;
+  if (px < -HALF + 0.4) { px = -HALF + 0.4; pvx = 0; }
+  if (px >  HALF - 0.4) { px =  HALF - 0.4; pvx = 0; }
+
+  // speedMul 은 퀴즈 패널티 전용 채널이다. 충돌 감속은 여기서 곱한다 — 두 주체가
+  // 같은 값에 각자 복귀 타이머를 걸면 서로를 지운다.
+  const collisionMul = stun > 0 ? 0.35 : 1;
+  const boostMul = boost > 0 ? 1.7 : 1;
+  pz += SPEED * state.speedMul * collisionMul * boostMul * dt;
+
+  for (const p of peds) {
+    p.z -= p.v * dt; p.sway += dt * 3;
+    const dz = p.z - pz;
+    // 가속 중에는 무적 — 사람만 밀치고 지나간다 (AGENTS.md §3 확정).
+    // 속도만 올리면 충돌 확률도 같이 올라 상이 상이 아니게 된다는 것이 채택 사유다.
+    if (dz > -0.6 && dz < 0.6 && Math.abs(p.x + Math.sin(p.sway) * 0.12 - px) < 0.62 && stun <= 0 && boost <= 0) {
+      hits++; stun = 0.55; flash = 1; pvx = -Math.sign(px - p.x) * 2.2;
+    }
+  }
+
+  // 게이트 통과 → 질문. 실제 게임에서는 world.js(A) 가 이 발화를 한다.
+  for (const g of gates) {
+    if (!g.fired && pz > g.z) { g.fired = true; fireGate(gates.indexOf(g)); }
+  }
+
+  if (pz >= GOAL_Z) finish('도착 — ' + (LIMIT - t).toFixed(1) + '초');
+  else if (t <= 0) { t = 0; finish('시간 초과'); }
+}
+
+function finish(text) {
+  done = text;
+  el('banner-t').textContent = text;
+  el('banner').classList.add('show');
+}
+
+// ── 루프 ────────────────────────────────────────────────────
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+
+  step(dt);
+
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  scene();
+  const v = ctx.createRadialGradient(CX, CY, H * 0.3, CX, CY, H * 0.9);
+  v.addColorStop(0, 'rgba(18,22,27,0)');
+  v.addColorStop(1, 'rgba(10,12,15,.8)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(228,115,140,${0.18 * Math.min(1, flash)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  el('h-time').textContent = t.toFixed(1);
+  el('h-hit').textContent = hits;
+  el('h-speed').textContent = '×' + (state.speedMul * (stun > 0 ? 0.35 : 1) * (boost > 0 ? 1.7 : 1)).toFixed(2);
+  // 랜덤 패널티 2종 중 어느 쪽이 걸렸는지 화면에서 갈라 보이게 한다. 감속은 속도 숫자가
+  // 바뀌어 티가 나지만 게이지 감소는 pip 하나가 꺼질 뿐이라 달리는 중에는 놓친다.
+  if (state.gauge < prevGauge) gaugeDropAt = now;
+  prevGauge = state.gauge;
+  el('h-slow').textContent = state.speedMul < 1 ? ' · 패널티: 감속'
+                           : now - gaugeDropAt < 1600 ? ' · 패널티: 게이지 −' : '';
+  paintPips();
+
+  el('g-speed').textContent = state.speedMul.toFixed(2);
+  el('g-gauge').textContent = state.gauge;
+  el('g-open').textContent  = String(state.quizOpen);
+  el('g-since').textContent = ((performance.now() - lastMsgAt) / 1000).toFixed(1);
+  if (performance.now() > 6000) el('hint').style.opacity = '0';
+
+  requestAnimationFrame(loop);
+}
+
+// 8칸까지만 그린다. 게이지 상한은 정해진 적이 없고(docs/balance-todo.md §3) 정답 20개면
+// 20칸이 되는데, 그걸 다 그리면 HUD 가 화면을 가로지른다. 정확한 값은 검증 패널의 숫자다.
+const pips = el('h-pips');
+for (let i = 0; i < 8; i++) pips.appendChild(document.createElement('div')).className = 'pip';
+function paintPips() {
+  for (let i = 0; i < pips.children.length; i++)
+    pips.children[i].className = 'pip' + (i < state.gauge ? ' on' : '');
+}
+
+resetWorld();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
