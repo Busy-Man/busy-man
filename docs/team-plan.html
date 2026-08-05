@@ -166,6 +166,26 @@
   </table>
   <p class="note">유지: 자동 전진 · 좌우 이동 · 보행자 충돌 감속 · 질문 모달 · 게이지 가속. 에셋은 도형과 텍스트 기준.</p>
 
+  <p class="note"><b>2026-08-05 재조정</b> — 위 두 표는 <b>8/3 시점 기록</b>입니다.
+  <span class="file">docs/기획_1차_보완.md</span>를 새 기준으로 삼아 확정 목록을 다시 짰고,
+  <b>「잘라낸 것」 표의 항목 일부가 되살아났습니다.</b> 현재 확정 사항은
+  <span class="file">AGENTS.md</span> §3이 정본입니다 — 아래는 무엇이 바뀌었는지만 적습니다.</p>
+  <table>
+    <tr><th>항목</th><th>8/3</th><th>8/5</th></tr>
+    <tr><td>좌회전 · 우회전</td><td>잘라냄</td><td><b>되살림</b> · temple run식 카메라 <span class="note">(연출은 미확정)</span></td></tr>
+    <tr><td>맵</td><td>직선 복도 + 3통로 갈림길</td><td><b>사전 생성 7종 랜덤</b> <span class="note">(종 수 변동 가능)</span></td></tr>
+    <tr><td>스테이지</td><td>90초</td><td><b>1분 30초 ~ 2분 30초</b></td></tr>
+    <tr><td>질문 카운트다운</td><td>6초</td><td><b>10초</b></td></tr>
+    <tr><td>질문 개수</td><td>4개</td><td><b>정해진 적 없음</b> <span class="note">— 주기 6~8초와 스테이지 길이만 있어 그대로면 20개 안팎이 된다</span></td></tr>
+    <tr><td>질문 방식</td><td>모달</td><td><b>모달 유지</b> <span class="note">— 실시간 안도 검토했으나 모달로 간다. 폰 UI는 가져옴</span></td></tr>
+    <tr><td>오답 · 타임아웃 패널티</td><td>감속 3초 고정</td><td><b>감속만 쓴다</b> <span class="note">— 둘의 벌은 같다. 게이지 감소·룰렛·카드는 폐기가 아니라 보류</span></td></tr>
+    <tr><td>스크랩</td><td>5칸 → 잘라냄</td><td>이번 스코프에서 뺀다 <span class="note">(폐기 아님. 대체안이던 원문 하이라이트도 없음)</span></td></tr>
+  </table>
+  <p class="note">렌더러는 <b>three.js로 확정</b>되어 회전 부활의 전제가 이미 충족돼 있습니다.
+  접점 4개와 <span class="file">src/state.js</span>는 <b>이번 재조정으로 바뀌지 않았습니다</b> —
+  질문 방식이 모달로 유지됐기 때문입니다. UI 세부는 <span class="file">docs/ui-spec.md</span>,
+  남은 밸런싱 항목은 <span class="file">docs/balance-todo.md</span>에 있습니다.</p>
+
   <h2><span class="num">03</span>역할 분담</h2>
   <p>둘 다 AI로 코드를 뽑을 예정이므로, <b>분담 기준은 난이도가 아니라 파일</b>입니다.
   같은 파일을 둘이 AI에게 던지면 서로의 코드를 덮어씁니다. 경계선은 <b>“화면 위 / 폰 안”</b>입니다.</p>
