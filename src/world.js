@@ -4,7 +4,8 @@
 // 목표는 게임성이 아니라 길(맵) 구조와 이동감이 자연스러운지만 확인하는 것 —
 // 그래서 진짜 건물 진입·퀴즈 이벤트·씬 전환은 아직 없다. 보행자는 prototype 방식
 // 그대로 되살렸다(장애물 + 충돌 감속, 진짜 AI는 없다). T(신호등)·C(공사장)는
-// 여전히 평범한 도로로 취급한다(색만 구분). B(건물)만 이번에 되살렸는데, prototype의 게이트
+// 이벤트가 붙었다 — C는 한 차선을 바리게이트로 막고, T는 횡단보도 군중이 안전
+// 차선만 열어 준다(안전 차선이 아니면 갇힌다). B(건물)만 이번에 되살렸는데, prototype의 게이트
 // (3통로 아치)를 그대로 세우고 그 위에 건물처럼 보이는 상자를 얹은 장식이다 —
 // 실제로 문을 통과했는지 판정하지는 않는다(충돌 없음). "지금 안 쓴다"로 남겨 둔
 // 부분은 주석으로 표시했다.
@@ -25,9 +26,15 @@
 [ TODO ]
 + B7 경로 조정
 + 행인 추가
++ 신호등, 공사장 추가 (바리게이트 · 횡단보도 군중 이벤트)
 + 도착지 표시
-- 신호등, 공사장 이벤트 추가
-- 가속 기능 추가
+- B7 건물 안 그래픽 버그 수정
+- 바리게이트 시작점에서 올라는 걸로 수정
+- 바리게이트 유저 접근 2초 -> 0.5초 전으로 수정
+- 신호등 행인 배치 세로 일자X -> 시작점에 가로로 2줄로 수정
+- 루트셋 확장 검토
+- 가속 기능 추가(가속키: w)
+- 방향, 신호등, 공사장 이벤트 호출
 **/
 
 import * as THREE from "../vendor/three.module.js";
@@ -110,6 +117,10 @@ const COLOR = {
   ped: 0x7c848e, // 행인 몸통 — prototype 그대로
   pedHead: 0x69717b, // 행인 머리 — prototype 그대로
   goal: 0x2f6f6b, // 도착 지점 — prototype의 accent(청록)
+  crosswalk1: 0x22262b, // 신호등 바닥 횡단보도 — 진한 회색/검정
+  crosswalk2: 0xf2f4f7, // 횡단보도 흰 줄
+  barricade: 0xf2a154, // 공사장 바리게이트 — 주황
+  barricade2: 0x2b2f36, // 바리게이트 경고 줄무늬 — 검정
 };
 
 // ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
@@ -133,6 +144,26 @@ const HIT_HALF = 0.62; // 충돌 판정 좌우 반폭 — prototype의 좌우 �
 const HIT_STUN = 0.55; // 부딪힌 뒤 감속 지속 — prototype
 const HIT_SLOW = 0.35; // 감속 배율(전진 속도에 곱함) — prototype
 const HIT_KNOCK = 2.2; // 옆으로 튕기는 속도 — prototype
+
+// ── 이벤트(공사장 C · 신호등 T) 공통: 3개 차선 ──────
+// 복도(반폭 3.5)를 왼쪽/가운데/오른쪽 3차선으로 나눈다. 플레이어의 좌우 오프셋으로
+// 지금 어느 차선인지 판정한다. prototype의 LANES 개념 그대로.
+const LANE_X = [-2.1, 0, 2.1];
+const LANE_NAME = ["왼쪽", "가운데", "오른쪽"];
+const LANE_HALF = 1.05; // 차선 반폭
+
+// ── 공사장(C) 바리게이트 ──
+const BARR_LEAD_SEC = 2; // 도착 약 2초 전 바닥에서 올라온다
+const BARR_RISE_SEC = 0.6; // 올라오는 애니메이션 시간
+const BARR_H = 2.3; // 다 올라온 높이
+const BARR_STOP = 0.9; // 막힐 때 바리게이트 이만큼 앞에서 멈춘다
+
+// ── 신호등(T) ──
+const TL_HALF_SEC = 2; // 구역 반깊이(초) → 정상 통과 약 4초(2×half/ SPEED)
+const TL_TRAP_SEC = 6; // 안전 차선을 못 타면 약 6초 갇혀 천천히 끌려간다
+const TL_OPEN_LEAD_SEC = 0.5; // 충돌 약 0.5초 전 안전 차선이 열린다
+const TL_CROWD_GAP = 1.6; // 군중 앞뒤 간격(줄 간격)
+const TL_STEP = 5.5; // 군중이 옆 차선으로 비켜서는 속도(유닛/초)
 
 // ── docs/aaa.jpg의 노드 좌표(원본) — 그래프 구조는 그대로 둔다(나중에 건물/신호등/
 // 공사장을 되살릴 때 다시 쓴다). 이번 버전은 이 중 일부만 잇는다. 실제 좌표(N)는
@@ -418,9 +449,16 @@ export function createWorld(container) {
   const buildings = buildBuildings(scene, routeNames, waypoints);
   const peds = createPedestrians(scene);
   buildGoalMarker(scene, waypoints);
+  // 공사장(C)·신호등(T) 이벤트 — 바리게이트/안전 차선을 여기서 한 번만 정한다.
+  const { events, navHints } = createEvents(
+    scene,
+    routeNames,
+    segments,
+    totalLength,
+  );
 
-  // 회전 안내(turn)와 게이트 문 안내(door)를 거리(s) 순서 하나로 합친다 —
-  // 토스트 하나가 둘 다 처리하니 순서만 맞으면 된다.
+  // 회전 안내(turn)·게이트 문 안내(door)·이벤트 안내(공사/신호)를 거리(s) 순서
+  // 하나로 합친다 — 토스트 하나가 다 처리하니 순서만 맞으면 된다.
   const hints = [
     ...computeTurnHints(waypoints).map((h) => ({
       s: h.s,
@@ -428,6 +466,7 @@ export function createWorld(container) {
       text: h.dir === "left" ? "왼쪽" : "오른쪽",
     })),
     ...computeDoorHints(buildings, routeNames, segments),
+    ...navHints,
   ].sort((a, b) => a.s - b.s);
 
   const toast = buildToast(container);
@@ -447,10 +486,16 @@ export function createWorld(container) {
     hitCount = 0;
 
   function update(dt, input) {
-    const turnLeft = !!(input && input.turnLeft),
-      turnRight = !!(input && input.turnRight);
-    const moveLeft = !!(input && input.moveLeft),
-      moveRight = !!(input && input.moveRight);
+    // 이동 전에: 신호등에 안전 차선이 아닌 채로 진입했는지(=갇힘) 먼저 판단한다.
+    // 갇히면 좌/우회전·좌우 이동 입력을 막고 전진을 느리게 한다(요구사항).
+    const prevS = s;
+    const lane0 = nearestLane(lateralOffset(segments, x, z));
+    const trap = stepEventControl(events, prevS, lane0);
+
+    const turnLeft = !trap.trapped && !!(input && input.turnLeft),
+      turnRight = !trap.trapped && !!(input && input.turnRight);
+    const moveLeft = !trap.trapped && !!(input && input.moveLeft),
+      moveRight = !trap.trapped && !!(input && input.moveRight);
 
     if (turnLeft && !turnRight) headingVel -= TURN_ACCEL * dt;
     else if (turnRight && !turnLeft) headingVel += TURN_ACCEL * dt;
@@ -468,19 +513,31 @@ export function createWorld(container) {
 
     // 충돌 감속은 world.js 안에서 전진 속도에 곱한다(AGENTS.md §2 — speedMul은
     // 퀴즈 패널티 전용이라 여기 안 쓴다). 감속이 남아 있으면 이번 프레임 전진만 준다.
+    // 신호등에 갇혔으면 그동안은 군중과 함께 느린 속도로만 끌려간다.
     const collisionMul = stun > 0 ? HIT_SLOW : 1;
+    const forward = trap.trapped ? trap.trapSpeed : SPEED * collisionMul;
     const fwd = dirVec(heading),
       perp = perpVec(heading);
-    let nx = x + (fwd.x * SPEED * collisionMul + perp.x * pvx) * dt;
-    let nz = z + (fwd.z * SPEED * collisionMul + perp.z * pvx) * dt;
+    let nx = x + (fwd.x * forward + perp.x * pvx) * dt;
+    let nz = z + (fwd.z * forward + perp.z * pvx) * dt;
     ({ x: nx, z: nz } = clampToRoad(segments, nx, nz));
     x = nx;
     z = nz;
-    s = nearestArcLength(segments, x, z);
 
-    // 행인 이동·빌보드·충돌. 감속 중엔 재판정하지 않는다(연속 충돌 방지).
+    // 이벤트: 바리게이트 상승·차단, 군중 이동·안전 차선 열기. s도 여기서 확정한다
+    // (바리게이트에 막히면 s가 그 앞으로 고정된다).
+    ({ x, z, s } = stepEventVisual(events, dt, prevS, x, z, heading, segments));
+
+    // 행인 이동·빌보드·충돌. 감속 중이거나 갇힌 동안엔 재판정하지 않는다.
     if (stun > 0) stun = Math.max(0, stun - dt);
-    const hit = stepPedestrians(peds, dt, x, z, heading, stun <= 0);
+    const hit = stepPedestrians(
+      peds,
+      dt,
+      x,
+      z,
+      heading,
+      stun <= 0 && !trap.trapped,
+    );
     if (hit) {
       hitCount++;
       stun = HIT_STUN;
@@ -524,6 +581,7 @@ export function createWorld(container) {
       p.s = p.s0;
       p.hit = false;
     }
+    resetEvents(events);
     showToast(toast, "↑", "직진");
   }
 
@@ -770,6 +828,321 @@ function stepPedestrians(peds, dt, px, pz, heading, canHit) {
     }
   }
   return hit;
+}
+
+// ── 이벤트(공사장 C · 신호등 T) ─────────────────────
+// 경로 위 좌표 헬퍼들 — 차선 판정과 바리게이트·군중 배치에 쓴다.
+function segHeadingAt(segments, s) {
+  let seg = segments[0];
+  for (const sg of segments) {
+    if (s <= sg.startS + sg.len) {
+      seg = sg;
+      break;
+    }
+    seg = sg;
+  }
+  return Math.atan2(seg.z1 - seg.z0, seg.x1 - seg.x0);
+}
+
+// 플레이어의 중앙선 대비 좌우 오프셋(부호 포함). 왼쪽 음수, 오른쪽 양수(perpVec 기준).
+function lateralOffset(segments, x, z) {
+  let best = Infinity,
+    lat = 0;
+  for (const seg of segments) {
+    const dx = seg.x1 - seg.x0,
+      dz = seg.z1 - seg.z0,
+      l2 = dx * dx + dz * dz;
+    const t =
+      l2 > 0 ? clamp(((x - seg.x0) * dx + (z - seg.z0) * dz) / l2, 0, 1) : 0;
+    const cx = seg.x0 + dx * t,
+      cz = seg.z0 + dz * t;
+    const d = Math.hypot(x - cx, z - cz);
+    if (d < best) {
+      best = d;
+      const p = perpVec(Math.atan2(dz, dx));
+      lat = (x - cx) * p.x + (z - cz) * p.z;
+    }
+  }
+  return lat;
+}
+
+function nearestLane(lat) {
+  let best = 0,
+    bd = Infinity;
+  for (let i = 0; i < LANE_X.length; i++) {
+    const d = Math.abs(lat - LANE_X[i]);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+// 경로 위 T/C 노드마다 이벤트를 만든다. 바리게이트 차선(C)·안전 차선(T)은 여기서
+// 딱 한 번 랜덤으로 정하고, 통과할 때까지 바뀌지 않는다(요구사항). 메시(바리게이트·
+// 군중)도 여기서 만든다. 반환: events 배열과, 안내 토스트로 쓸 navHints.
+function createEvents(scene, routeNames, segments, totalLength) {
+  const events = [];
+  const navHints = [];
+  const nodeS = (i) => (i < segments.length ? segments[i].startS : totalLength);
+
+  const bodyGeo = pedBillboardGeometry(PED_HALF, 0, PED_BODY_H);
+  const headGeo = pedBillboardGeometry(PED_HEAD_HALF, PED_BODY_H, PED_HEAD_TOP);
+  const bodyMat = new THREE.MeshBasicMaterial({
+    color: COLOR.ped,
+    side: THREE.DoubleSide,
+  });
+  const headMat = new THREE.MeshBasicMaterial({
+    color: COLOR.pedHead,
+    side: THREE.DoubleSide,
+  });
+  const barrMat = new THREE.MeshBasicMaterial({
+    map: barricadeTexture(),
+    side: THREE.DoubleSide,
+  });
+
+  for (let i = 1; i < routeNames.length - 1; i++) {
+    const zone = nodeZone(routeNames[i]);
+    if (!zone) continue;
+    const centerS = nodeS(i);
+
+    if (zone === "C") {
+      const lane = Math.floor(Math.random() * 3);
+      const barrS = centerS + durationToDistance(ZONE_SEC) / 2; // 공사장 출구
+      const mesh = buildBarricadeMesh(segments, barrS, lane, barrMat);
+      scene.add(mesh);
+      events.push({ type: "C", lane, centerS, barrS, mesh, risen: 0 });
+      navHints.push({
+        s: centerS - durationToDistance(BARR_LEAD_SEC) - 6,
+        arrow: "⚠",
+        text: `주의!! ${LANE_NAME[lane]} 공사 중`,
+      });
+    } else {
+      const safeLane = Math.floor(Math.random() * 3);
+      const half = durationToDistance(TL_HALF_SEC);
+      const startS = centerS - half,
+        endS = centerS + half;
+      const crowd = buildCrowd(
+        scene,
+        segments,
+        startS,
+        endS,
+        bodyGeo,
+        headGeo,
+        bodyMat,
+        headMat,
+      );
+      events.push({
+        type: "T",
+        safeLane,
+        centerS,
+        startS,
+        endS,
+        crowd,
+        opened: false,
+        phase: "pending", // pending → active(통과/갇힘 결정됨) → done
+        trap: false,
+        trapSpeed: (endS - startS) / TL_TRAP_SEC,
+      });
+      navHints.push({
+        s: startS - 6,
+        arrow: "↑",
+        text: `${LANE_NAME[safeLane]}로 건너기`,
+      });
+    }
+  }
+  return { events, navHints };
+}
+
+// 바리게이트 판 — 차선 폭만큼 도로를 가로막는 세로 판. X·Z는 월드로 미리 굽고
+// (해당 차선 위치), 처음엔 지하(position.y = -BARR_H)에 숨겼다가 y만 올려 등장시킨다.
+function buildBarricadeMesh(segments, barrS, lane, mat) {
+  const c = pointAtArcLength(segments, barrS, 0);
+  const perp = perpVec(segHeadingAt(segments, barrS));
+  const cx = c.x + perp.x * LANE_X[lane],
+    cz = c.z + perp.z * LANE_X[lane];
+  const w = LANE_HALF * 0.95;
+  const p0 = [cx - perp.x * w, cz - perp.z * w],
+    p1 = [cx + perp.x * w, cz + perp.z * w];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      new Float32Array([
+        p0[0],
+        0,
+        p0[1],
+        p1[0],
+        0,
+        p1[1],
+        p1[0],
+        BARR_H,
+        p1[1],
+        p0[0],
+        BARR_H,
+        p0[1],
+      ]),
+      3,
+    ),
+  );
+  geo.setAttribute(
+    "uv",
+    new THREE.BufferAttribute(new Float32Array([0, 0, 3, 0, 3, 1, 0, 1]), 2),
+  );
+  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = -BARR_H; // 지하에 숨겨 둔다
+  return mesh;
+}
+
+// 신호등 군중 — 구역(startS~endS)을 세 차선 모두 촘촘히 채운다. 각 행인은 home
+// 차선을 기억하고, 안전 차선이 열리면 그 차선 행인만 옆으로 비켜선다.
+function buildCrowd(
+  scene,
+  segments,
+  startS,
+  endS,
+  bodyGeo,
+  headGeo,
+  bodyMat,
+  headMat,
+) {
+  const crowd = [];
+  for (let cs = startS; cs <= endS; cs += TL_CROWD_GAP) {
+    for (let lane = 0; lane < 3; lane++) {
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      const head = new THREE.Mesh(headGeo, headMat);
+      scene.add(body);
+      scene.add(head);
+      crowd.push({
+        s: cs,
+        lane,
+        homeOff: LANE_X[lane],
+        off: LANE_X[lane],
+        targetOff: LANE_X[lane],
+        sway: Math.random() * Math.PI * 2,
+        body,
+        head,
+      });
+    }
+  }
+  return crowd;
+}
+
+// 이벤트 상태 갱신 중 "조작 제약"만 먼저 판단한다(이동 계산 전에 호출). 신호등
+// 구역에 안전 차선이 아닌 채로 진입하면 갇힌다(phase=active, trap=true). 갇힘이
+// 결정되면 구역이 끝날 때까지 유지된다. 반환: { trapped, trapSpeed }.
+function stepEventControl(events, s, lane) {
+  let trapped = false,
+    trapSpeed = SPEED;
+  for (const ev of events) {
+    if (ev.type !== "T") continue;
+    if (ev.phase === "pending" && s >= ev.startS) {
+      ev.phase = "active";
+      ev.trap = lane !== ev.safeLane; // 진입 순간 차선으로 통과/갇힘 확정
+    }
+    if (ev.phase === "active" && s >= ev.endS) ev.phase = "done";
+    if (ev.phase === "active" && ev.trap) {
+      trapped = true;
+      trapSpeed = ev.trapSpeed;
+    }
+  }
+  return { trapped, trapSpeed };
+}
+
+// 이동을 마친 뒤: 바리게이트를 올리고(플레이어가 가까워지면), 막힌 차선이면 전진을
+// 막고, 군중을 움직인다(안전 차선 열기 + 빌보드). 바리게이트에 막히면 조정된
+// {x, z, s}를 준다.
+function stepEventVisual(events, dt, prevS, x, z, heading, segments) {
+  let s = nearestArcLength(segments, x, z);
+  let lat = lateralOffset(segments, x, z);
+  let lane = nearestLane(lat);
+
+  for (const ev of events) {
+    if (ev.type === "C") {
+      // 도착 약 2초 전부터 올라온다
+      if (
+        prevS >= ev.barrS - durationToDistance(BARR_LEAD_SEC) &&
+        ev.risen < 1
+      ) {
+        ev.risen = Math.min(1, ev.risen + dt / BARR_RISE_SEC);
+        ev.mesh.position.y = -BARR_H * (1 - ev.risen);
+      }
+      // 다 올라온 뒤, 막힌 차선으로 앞서 나가려 하면 바리게이트 앞에서 멈춘다.
+      // 다른 차선이면 그냥 지나간다(우회).
+      if (
+        ev.risen >= 0.8 &&
+        lane === ev.lane &&
+        prevS < ev.barrS &&
+        s > ev.barrS - BARR_STOP
+      ) {
+        s = ev.barrS - BARR_STOP;
+        const p = pointAtArcLength(segments, s, lat);
+        x = p.x;
+        z = p.z;
+      }
+    } else {
+      // 신호등: 충돌 약 0.5초 전 안전 차선을 연다(그 차선 행인들이 옆으로 비켜선다).
+      if (
+        !ev.opened &&
+        prevS >= ev.startS - durationToDistance(TL_OPEN_LEAD_SEC)
+      ) {
+        ev.opened = true;
+        for (const c of ev.crowd) {
+          if (c.lane === ev.safeLane) {
+            // 가까운(또는 반대편) 다른 차선으로 목표를 옮긴다
+            const other =
+              ev.safeLane === 0
+                ? 1
+                : ev.safeLane === 2
+                  ? 1
+                  : c.s % 2 < 1
+                    ? 0
+                    : 2;
+            c.targetOff = LANE_X[other];
+          }
+        }
+      }
+      for (const c of ev.crowd) {
+        // 목표 차선으로 스르륵 이동 + 좌우 흔들림
+        const d = c.targetOff - c.off;
+        c.off += clamp(d, -TL_STEP * dt, TL_STEP * dt);
+        c.sway += dt * 3;
+        const pos = pointAtArcLength(
+          segments,
+          c.s,
+          c.off + Math.sin(c.sway) * 0.1,
+        );
+        c.body.position.set(pos.x, 0, pos.z);
+        c.head.position.set(pos.x, 0, pos.z);
+        const theta = Math.atan2(x - pos.x, z - pos.z);
+        c.body.rotation.y = theta;
+        c.head.rotation.y = theta;
+      }
+    }
+  }
+  return { x, z, s };
+}
+
+// 리셋: 바리게이트를 지하로, 군중을 제자리로, 진행 상태를 처음으로 되돌린다.
+// 차선(바리게이트·안전)은 그대로 둔다 — 같은 맵을 다시 도는 것이므로.
+function resetEvents(events) {
+  for (const ev of events) {
+    if (ev.type === "C") {
+      ev.risen = 0;
+      ev.mesh.position.y = -BARR_H;
+    } else {
+      ev.opened = false;
+      ev.phase = "pending";
+      ev.trap = false;
+      for (const c of ev.crowd) {
+        c.off = c.homeOff;
+        c.targetOff = c.homeOff;
+      }
+    }
+  }
 }
 
 function computeTurnHints(waypoints) {
@@ -1194,8 +1567,9 @@ function buildCityRoads(scene) {
       }),
     },
     T: {
+      // 신호등 구역 바닥은 횡단보도(검정/흰 줄무늬). 벽은 신호 노랑을 유지한다.
       floor: new THREE.MeshBasicMaterial({
-        map: stripeTexture(COLOR.tFloor, COLOR.tFloor2),
+        map: crosswalkTexture(),
       }),
       wall: new THREE.MeshBasicMaterial({
         map: stripeTexture(COLOR.tWall, COLOR.tWall2),
@@ -1446,6 +1820,33 @@ function stripeTexture(colorA, colorB) {
   ctx.fillRect(0, 0, 1, 1);
   ctx.fillStyle = hexColor(colorB);
   ctx.fillRect(0, 1, 1, 1);
+  return finishTexture(cnv);
+}
+
+// 횡단보도 — 진행방향(세로 v)으로 굵은 검정/흰 줄이 번갈아 나오게 세로로 2칸.
+// 바닥 UV는 v가 진행방향이라, 세로 2픽셀이 도로를 가로지르는 줄무늬가 된다.
+function crosswalkTexture() {
+  const cnv = document.createElement("canvas");
+  cnv.width = 1;
+  cnv.height = 2;
+  const ctx = cnv.getContext("2d");
+  ctx.fillStyle = hexColor(COLOR.crosswalk1);
+  ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = hexColor(COLOR.crosswalk2);
+  ctx.fillRect(0, 1, 1, 1);
+  return finishTexture(cnv);
+}
+
+// 바리게이트 경고 줄무늬(주황/검정 세로줄).
+function barricadeTexture() {
+  const cnv = document.createElement("canvas");
+  cnv.width = 4;
+  cnv.height = 1;
+  const ctx = cnv.getContext("2d");
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = hexColor(i % 2 ? COLOR.barricade2 : COLOR.barricade);
+    ctx.fillRect(i, 0, 1, 1);
+  }
   return finishTexture(cnv);
 }
 
