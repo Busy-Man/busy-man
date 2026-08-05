@@ -2,8 +2,9 @@
 // 담당: A
 //
 // 목표는 게임성이 아니라 길(맵) 구조와 이동감이 자연스러운지만 확인하는 것 —
-// 그래서 진짜 건물 진입·퀴즈 이벤트·씬 전환·보행자는 아직 없다. T(신호등)·C(공사장)는
-// 여전히 평범한 도로로 취급한다. B(건물)만 이번에 되살렸는데, prototype의 게이트
+// 그래서 진짜 건물 진입·퀴즈 이벤트·씬 전환은 아직 없다. 보행자는 prototype 방식
+// 그대로 되살렸다(장애물 + 충돌 감속, 진짜 AI는 없다). T(신호등)·C(공사장)는
+// 여전히 평범한 도로로 취급한다(색만 구분). B(건물)만 이번에 되살렸는데, prototype의 게이트
 // (3통로 아치)를 그대로 세우고 그 위에 건물처럼 보이는 상자를 얹은 장식이다 —
 // 실제로 문을 통과했는지 판정하지는 않는다(충돌 없음). "지금 안 쓴다"로 남겨 둔
 // 부분은 주석으로 표시했다.
@@ -21,12 +22,12 @@
 // CDN을 쓰면 심사 당일 외부 서버 상태에 게임이 종속된다. 규약은 AGENTS.md §3.
 
 /**
-[ TODO-0805 ]
-- B7 경로 조정
-- 행인 추가
-- 신호등, 공사장 추가
+[ TODO ]
++ B7 경로 조정
++ 행인 추가
++ 도착지 표시
+- 신호등, 공사장 이벤트 추가
 - 가속 기능 추가
-- 도착지 표시
 **/
 
 import * as THREE from "../vendor/three.module.js";
@@ -42,10 +43,23 @@ const TURN_ACCEL = 6,
   TURN_DAMP = 7,
   TURN_MAX = 1.6; // 회전(방향키)
 
+// 맵 전체 확대 배율 — 노드 좌표(N)에만 곱한다. 그래프 구조·모양·이음매는
+// 그대로 두고 "구간 길이(거리)"만 늘려 전체 주행 시간을 맞추는 유일한 손잡이다.
+// docs/aaa.jpg 원본 좌표로는 대표 경로가 33초 안팎(SPEED=6)이라 짧았다 → 2.1을
+// 곱해 자주 나오는 경로들이 약 70초에 들어오게 했다. 비율을 유지하는 균등 확대라
+// 특정 구간만 급격히 짧거나 길어지지 않는다. 속도(SPEED)는 건드리지 않는다.
+const MAP_SCALE = 2.1;
+
+// 구간 목표 시간(초) → 월드 거리. 길이는 언제나 SPEED × 시간이다 — 이후 T(신호등)·
+// C(공사장) 체류를 붙일 때도 각자의 초만 정하면 이 함수로 길이가 정해지도록 남긴다.
+function durationToDistance(sec) {
+  return SPEED * sec;
+}
+
 const CEIL = 3.0; // 벽 높이 — prototype 그대로
 const ROAD_HALF = 3.5; // 복도 반폭 — prototype 그대로
 const PLAYER_MARGIN = 0.4; // 벽에 실제로 파묻히지 않게 두는 여유 — prototype 그대로
-const HINT_LOOKAHEAD = 10; // 갈림길·게이트 이 거리 앞에서 토스트를 띄운다
+const HINT_LOOKAHEAD = 21; // 갈림길·게이트 이 거리 앞에서 토스트를 띄운다(맵 확대에 맞춰 10→21)
 const TOAST_DURATION = 2.2;
 
 // 게이트 — prototype의 4기둥(3통로) 아치를 그대로 가져왔다. LANE_X 값도 동일.
@@ -53,7 +67,22 @@ const GATE_LANE_X = [-3.5, -1.15, 1.15, 3.5];
 const DOOR_NAME = ["왼쪽 문", "가운데 문", "오른쪽 문"];
 const DOOR_ARROW = ["←", "↑", "→"];
 const BUILDING_H = 4.0; // 게이트 위에 얹는 상자 높이
-const BUILDING_LEN_SCALE = 0.8; // docs/맵 시간 배분.md의 초를 미터로 줄이는 비율(지도 스케일에 맞춤)
+// 건물 안에 머무는 시간(초). 건물은 노드에 얹힌 상자라 플레이어가 상자 길이만큼
+// 통과하고, 체류 시간 = 상자 길이 / SPEED다. 요구사항: 최소 5초 이상.
+// docs의 원래 건물 초(10~15)를 그대로 쓰면 상자가 인접 노드를 넘어 다른 길과
+// 겹치므로(특히 B3은 스케일 후에도 7초 남짓이 한계) 지금 맵 길이에 들어오는
+// 균일 값 5.5초로 둔다 — 최소치 5초를 넘기고 가장 빡빡한 B3에도 들어간다.
+const BUILDING_DWELL_SEC = 5.5;
+// 건물 안 게이트(문) 간격 — 평균 이만큼 이동할 때마다 문 하나. 건물 통과 시간이
+// 길수록 문 개수도 자연히 늘어난다(개수 = 통과시간 / 이 값, 반올림). 길이는
+// durationToDistance로 나오므로 초만 정하면 위치가 따라온다.
+const GATE_INTERVAL_SEC = 3;
+
+// 신호등(T)·공사장(C) 구간의 색칠 길이(초). 아직 이벤트(정지·서행)는 없고 일반
+// 도로처럼 지나가되, 노드를 중심으로 이만큼의 길이만 다른 색으로 칠해 "여기가 T/C
+// 자리"임을 보여 준다. 요구사항: 각 T/C 구간은 최소 2초 이상 이동 길이. durationToDistance로
+// 길이가 정해지므로, 이후 실제 이벤트를 붙일 때 이 초만 바꾸면 구간 길이가 따라온다.
+const ZONE_SEC = 2.2;
 
 // prototype/busy-man-prototype.html의 타일 방식(줄무늬 텍스처, 3유닛 주기)은
 // 그대로 가져오되, 벽은 바닥과 확실히 구분되게 더 어둡게 잡았다 — 원래 값(둘 다
@@ -68,11 +97,47 @@ const COLOR = {
   wall2: 0xa9b5c0,
   lane: 0xc9d1d9,
   gate: 0x5c6470, // 게이트 기둥·상판과 건물 상자를 전부 이 색 하나로 — "색깔을 똑같게"
+  // 신호등(T)·공사장(C) — 이동 방식은 일반 도로와 같고 색만 다르게 해서 구분한다.
+  // 아직 이벤트는 없다(맵·길 형태 검증 단계). 타입은 유지한다.
+  tFloor: 0xf6e0a3, // T 신호등 — 노랑 계열
+  tFloor2: 0xf0d488,
+  tWall: 0xe6c657,
+  tWall2: 0xd8b845,
+  cFloor: 0xf5c9a0, // C 공사장 — 주황 계열
+  cFloor2: 0xf0b986,
+  cWall: 0xe39a5a,
+  cWall2: 0xd68a48,
+  ped: 0x7c848e, // 행인 몸통 — prototype 그대로
+  pedHead: 0x69717b, // 행인 머리 — prototype 그대로
+  goal: 0x2f6f6b, // 도착 지점 — prototype의 accent(청록)
 };
 
-// ── docs/aaa.jpg의 노드 좌표 — 그래프 구조는 그대로 둔다(나중에 건물/신호등/
-// 공사장을 되살릴 때 다시 쓴다). 이번 버전은 이 중 일부만 잇는다. ────────
-const N = {
+// ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
+// 복도 안에 흩어 세우고 플레이어 쪽으로 걸어오게 한다. 부딪히면 잠깐 감속되고
+// 옆으로 튕긴다. 아직 진짜 AI는 없다 — 앞을 보게 만드는 장애물일 뿐. 좌표계가
+// 곧은 z-복도가 아니라 꺾이는 경로라, 위치는 "경로 진행거리(s) + 좌우 오프셋"으로
+// 잡아 길을 따라 배치한다.
+const PED_BODY_H = 1.42; // 몸통 높이 — prototype
+const PED_HEAD_TOP = 1.76; // 머리 꼭대기 — prototype
+const PED_HALF = 0.32; // 몸통 반폭 — prototype
+const PED_HEAD_HALF = 0.17; // 머리 반폭 — prototype
+const PED_LANE_HALF = 3.2; // 좌우로 흩어지는 범위(복도 반폭 3.5보다 안쪽) — prototype
+const PED_SPEED_MIN = 1.4; // 다가오는 속도 하한 — prototype
+const PED_SPEED_VAR = 0.9; // 속도 편차 — prototype
+const PED_GAP_MIN = 3.5; // 앞뒤 간격 하한 — prototype
+const PED_GAP_VAR = 3.0; // 간격 편차 — prototype
+const PED_START_S = 10; // 시작점 바로 앞은 비워 둔다
+const PED_CLEAR_BUILDING = 2; // 건물(게이트) 안쪽엔 행인을 두지 않는다
+const HIT_DEPTH = 0.6; // 충돌 판정 앞뒤 반깊이 — prototype의 dz 창(±0.6)
+const HIT_HALF = 0.62; // 충돌 판정 좌우 반폭 — prototype의 좌우 임계값
+const HIT_STUN = 0.55; // 부딪힌 뒤 감속 지속 — prototype
+const HIT_SLOW = 0.35; // 감속 배율(전진 속도에 곱함) — prototype
+const HIT_KNOCK = 2.2; // 옆으로 튕기는 속도 — prototype
+
+// ── docs/aaa.jpg의 노드 좌표(원본) — 그래프 구조는 그대로 둔다(나중에 건물/신호등/
+// 공사장을 되살릴 때 다시 쓴다). 이번 버전은 이 중 일부만 잇는다. 실제 좌표(N)는
+// 이 원본에 MAP_SCALE만 곱한 것 — 모양·연결은 같고 거리만 늘어난다. ────────
+const N_RAW = {
   START: [0, 33],
   N1: [13, 33],
   N2: [13, 9],
@@ -104,6 +169,14 @@ const N = {
   B8: [103, 66],
   END3: [122, 69],
 };
+
+// 원본 좌표에 MAP_SCALE만 곱한 실제 좌표 — 코드는 전부 이 N을 쓴다.
+const N = Object.fromEntries(
+  Object.entries(N_RAW).map(([k, [x, z]]) => [
+    k,
+    [x * MAP_SCALE, z * MAP_SCALE],
+  ]),
+);
 
 // 전체 도로망 — 실제로 걸을 수 있는 건 이 중 선택된 경로(ROUTES) 하나뿐이지만,
 // 나머지 길도 지도 맥락으로 화면에는 그려 준다("선택 안 된 길도 UI에 나와야 한다").
@@ -220,7 +293,9 @@ const ROUTES = [
   ],
 ];
 
-// docs/맵 시간 배분.md의 B1~B8 구간 초를 그대로 옮겼다 — 상자 길이 스케일에 쓴다.
+// docs/맵 시간 배분.md의 B1~B8 구간 초. 지금 상자 길이는 BUILDING_DWELL_SEC로
+// 균일하게 정한다(현재 맵 길이에 이 값들 10~15초가 다 들어가지 않아서) — 이 표는
+// 건물별 체류 시간을 되살릴 때의 목표값으로 남겨 둔다.
 const BUILDING_SEC = {
   B1: 10,
   B2: 10,
@@ -257,6 +332,15 @@ function clamp(v, lo, hi) {
 }
 function pt(id) {
   return N[id];
+}
+
+// 노드 이름이 신호등(T#)·공사장(C#)이면 그 타입을, 아니면 null을 준다.
+// 도로를 색칠할 때 이 노드 주변만 다른 색으로 칠하는 데 쓴다. 타입은 유지하고
+// (S로 안 바꾼다) 색만 구분하는 것이 목적이다.
+function nodeZone(name) {
+  if (/^T\d+$/.test(name)) return "T";
+  if (/^C\d+$/.test(name)) return "C";
+  return null;
 }
 
 // 각 웨이포인트에서 "이 폭만큼 옆으로 벌리면 옆 구간과 이가 맞는" 방향을 구한다.
@@ -332,6 +416,8 @@ export function createWorld(container) {
 
   buildCityRoads(scene);
   const buildings = buildBuildings(scene, routeNames, waypoints);
+  const peds = createPedestrians(scene);
+  buildGoalMarker(scene, waypoints);
 
   // 회전 안내(turn)와 게이트 문 안내(door)를 거리(s) 순서 하나로 합친다 —
   // 토스트 하나가 둘 다 처리하니 순서만 맞으면 된다.
@@ -357,6 +443,8 @@ export function createWorld(container) {
     arrived = false;
   let nextHint = 0,
     toastTimer = 0;
+  let stun = 0, // 행인과 부딪힌 뒤 감속이 남은 시간
+    hitCount = 0;
 
   function update(dt, input) {
     const turnLeft = !!(input && input.turnLeft),
@@ -378,14 +466,26 @@ export function createWorld(container) {
     else pvx -= Math.sign(pvx) * Math.min(Math.abs(pvx), STEER_DAMP * dt);
     pvx = clamp(pvx, -STEER_MAX, STEER_MAX);
 
+    // 충돌 감속은 world.js 안에서 전진 속도에 곱한다(AGENTS.md §2 — speedMul은
+    // 퀴즈 패널티 전용이라 여기 안 쓴다). 감속이 남아 있으면 이번 프레임 전진만 준다.
+    const collisionMul = stun > 0 ? HIT_SLOW : 1;
     const fwd = dirVec(heading),
       perp = perpVec(heading);
-    let nx = x + (fwd.x * SPEED + perp.x * pvx) * dt;
-    let nz = z + (fwd.z * SPEED + perp.z * pvx) * dt;
+    let nx = x + (fwd.x * SPEED * collisionMul + perp.x * pvx) * dt;
+    let nz = z + (fwd.z * SPEED * collisionMul + perp.z * pvx) * dt;
     ({ x: nx, z: nz } = clampToRoad(segments, nx, nz));
     x = nx;
     z = nz;
     s = nearestArcLength(segments, x, z);
+
+    // 행인 이동·빌보드·충돌. 감속 중엔 재판정하지 않는다(연속 충돌 방지).
+    if (stun > 0) stun = Math.max(0, stun - dt);
+    const hit = stepPedestrians(peds, dt, x, z, heading, stun <= 0);
+    if (hit) {
+      hitCount++;
+      stun = HIT_STUN;
+      pvx = hit.pushSign * HIT_KNOCK; // 옆으로 튕긴다
+    }
 
     if (
       !arrived &&
@@ -398,12 +498,33 @@ export function createWorld(container) {
     }
     if (!arrived && s >= totalLength - 1) {
       arrived = true;
-      showToast(toast, "●", "도착 — 성공", true);
+      hideToast(toast); // 도착 UI(결과·시간·다시 시작)는 main.js가 띄운다
     }
     if (toastTimer > 0) {
       toastTimer -= dt;
       if (toastTimer <= 0 && !arrived) hideToast(toast);
     }
+  }
+
+  // 현재 맵 그대로 처음부터 다시 — 지오메트리(길·건물·행인 메시)는 그대로 두고
+  // 움직이는 상태만 초기화한다. 행인은 원래 자리(s0)로 되돌리고 부딪힘 표시를 지운다.
+  function reset() {
+    x = waypoints[0][0];
+    z = waypoints[0][1];
+    heading = 0;
+    headingVel = 0;
+    pvx = 0;
+    s = 0;
+    arrived = false;
+    nextHint = 0;
+    toastTimer = 0;
+    stun = 0;
+    hitCount = 0;
+    for (const p of peds) {
+      p.s = p.s0;
+      p.hit = false;
+    }
+    showToast(toast, "↑", "직진");
   }
 
   function render() {
@@ -426,12 +547,16 @@ export function createWorld(container) {
     update,
     render,
     resize,
+    reset,
     get hits() {
-      return 0;
-    }, // 보행자를 뺐으니 항상 0 — main.js 접점 모양은 유지
+      return hitCount;
+    }, // 행인과 부딪힌 누적 횟수 — main.js가 HUD로 읽는다
     get distance() {
       return s;
     },
+    get arrived() {
+      return arrived;
+    }, // 도착 여부 — main.js가 타이머를 멈추고 결과를 띄운다
   };
 }
 
@@ -497,6 +622,156 @@ function nearestArcLength(segments, x, z) {
   return bestS;
 }
 
+// 경로 진행거리 s와 좌우 오프셋 off로 월드 좌표를 구한다 — 행인을 "길 위 어디쯤,
+// 중앙선에서 얼마만큼 옆"으로 배치·이동시키는 데 쓴다. 길이 꺾여도 s만 따라가면
+// 알아서 굽은 복도를 탄다. cx/cz는 중앙선 위 점(충돌 판정 등에 쓸 수 있게 같이 준다).
+function pointAtArcLength(segments, s, off) {
+  let seg = segments[0];
+  for (const sg of segments) {
+    if (s <= sg.startS + sg.len) {
+      seg = sg;
+      break;
+    }
+    seg = sg; // s가 전체 길이를 넘으면 마지막 선분 끝
+  }
+  const t = seg.len > 0 ? clamp((s - seg.startS) / seg.len, 0, 1) : 0;
+  const cx = seg.x0 + (seg.x1 - seg.x0) * t,
+    cz = seg.z0 + (seg.z1 - seg.z0) * t;
+  const p = perpVec(Math.atan2(seg.z1 - seg.z0, seg.x1 - seg.x0));
+  return { x: cx + p.x * off, z: cz + p.z * off, cx, cz };
+}
+
+// ── 행인(보행자) ──────────────────────────────────
+// 행인은 카메라를 향해 서는 납작한 판(빌보드)이다 — prototype이 z를 향한 사각형을
+// 그린 것과 같은데, 여기선 길이 꺾이므로 매 프레임 플레이어 쪽으로 Y축만 돌린다.
+// 지오메트리는 원점 기준(로컬 XY 평면, 발이 y=0)으로 만들어 위치·회전만 갱신한다.
+function pedBillboardGeometry(halfW, y0, y1) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      new Float32Array([
+        -halfW,
+        y0,
+        0,
+        halfW,
+        y0,
+        0,
+        halfW,
+        y1,
+        0,
+        -halfW,
+        y1,
+        0,
+      ]),
+      3,
+    ),
+  );
+  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// 맵 전체 도로망에 행인을 흩어 세운다 — 플레이어가 걷는 경로뿐 아니라 다른 길에도.
+// 각 논리 도로(mergeStraightRoads)를 자기 진행거리로 따라가며 같은 간격(prototype
+// 상수)으로 배치하므로, 어디를 봐도 밀도가 같고 특정 구간에 몰리지 않는다. 몸통·머리
+// 지오메트리와 재질은 하나씩만 만들어 공유한다. 건물 안과 출발 지점 바로 앞은 비운다.
+function createPedestrians(scene) {
+  const bodyGeo = pedBillboardGeometry(PED_HALF, 0, PED_BODY_H);
+  const headGeo = pedBillboardGeometry(PED_HEAD_HALF, PED_BODY_H, PED_HEAD_TOP);
+  const bodyMat = new THREE.MeshBasicMaterial({
+    color: COLOR.ped,
+    side: THREE.DoubleSide,
+  });
+  const headMat = new THREE.MeshBasicMaterial({
+    color: COLOR.pedHead,
+    side: THREE.DoubleSide,
+  });
+
+  const buildingCenters = Object.keys(BUILDING_SEC).map(pt);
+  const buildingClear =
+    durationToDistance(BUILDING_DWELL_SEC) / 2 + PED_CLEAR_BUILDING;
+  const startPt = pt("START");
+
+  const peds = [];
+  for (const road of mergeStraightRoads(ROADS)) {
+    const segs = toSegments(road.map(pt));
+    const len = segs.reduce((a, sg) => a + sg.len, 0);
+    if (len < PED_GAP_MIN) continue;
+    for (
+      let s = PED_GAP_MIN;
+      s < len - 1;
+      s += PED_GAP_MIN + Math.random() * PED_GAP_VAR
+    ) {
+      const off = (Math.random() * 2 - 1) * PED_LANE_HALF;
+      const c = pointAtArcLength(segs, s, off);
+      if (
+        buildingCenters.some(
+          (b) => Math.hypot(c.x - b[0], c.z - b[1]) < buildingClear,
+        )
+      )
+        continue;
+      if (Math.hypot(c.x - startPt[0], c.z - startPt[1]) < PED_START_S)
+        continue;
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      const head = new THREE.Mesh(headGeo, headMat);
+      scene.add(body);
+      scene.add(head);
+      peds.push({
+        segs,
+        len,
+        s,
+        s0: s,
+        off,
+        v: PED_SPEED_MIN + Math.random() * PED_SPEED_VAR,
+        dir: Math.random() < 0.5 ? -1 : 1, // 도로 따라 오가는 방향(양방향 섞임)
+        sway: Math.random() * Math.PI * 2,
+        hit: false,
+        body,
+        head,
+      });
+    }
+  }
+  return peds;
+}
+
+// 매 프레임: 행인을 자기 도로를 따라 걷게 하고(끝에 닿으면 반대 끝으로 되돌아
+// 흐른다), 좌우로 살짝 흔들고(sway), 플레이어를 향해 빌보드 회전시킨다. 행인은
+// 자기 도로(segs)를 가지므로 경로 밖 도로의 행인도 각자 걷는다. canHit일 때만
+// (감속 중이 아닐 때만) 충돌을 판정한다 — 한 프레임에 한 번만. 부딪힌 행인은
+// hit로 표시해 다시 세지 않는다. 반환값은 부딪힘 여부와 튕길 방향(±1).
+function stepPedestrians(peds, dt, px, pz, heading, canHit) {
+  const fwd = dirVec(heading),
+    perp = perpVec(heading);
+  let hit = null;
+  for (const p of peds) {
+    p.s += p.dir * p.v * dt;
+    if (p.s < 0) p.s += p.len;
+    else if (p.s > p.len) p.s -= p.len;
+    p.sway += dt * 3;
+    const pos = pointAtArcLength(p.segs, p.s, p.off + Math.sin(p.sway) * 0.12);
+    p.body.position.set(pos.x, 0, pos.z);
+    p.head.position.set(pos.x, 0, pos.z);
+    const theta = Math.atan2(px - pos.x, pz - pos.z); // 플레이어를 바라보게
+    p.body.rotation.y = theta;
+    p.head.rotation.y = theta;
+    // 충돌은 원이 아니라 상자로 판정한다 — prototype처럼 진행방향으로 ±HIT_DEPTH,
+    // 좌우로 ±HIT_HALF. 원(반경)으로 하면 빠른 전진 때 판정 창이 너무 얕아 거의
+    // 안 부딪힌다. 진행방향/좌우 성분으로 분해해서 각각 임계값과 비교한다.
+    if (canHit && !p.hit && !hit) {
+      const rx = pos.x - px,
+        rz = pos.z - pz;
+      const fwdGap = rx * fwd.x + rz * fwd.z,
+        latGap = rx * perp.x + rz * perp.z;
+      if (Math.abs(fwdGap) < HIT_DEPTH && Math.abs(latGap) < HIT_HALF) {
+        p.hit = true;
+        hit = { pushSign: latGap >= 0 ? -1 : 1 }; // 행인 반대쪽으로 튕긴다
+      }
+    }
+  }
+  return hit;
+}
+
 function computeTurnHints(waypoints) {
   const hints = [];
   let acc = 0;
@@ -529,7 +804,8 @@ function computeTurnHints(waypoints) {
 function buildingPlacement(id, center, neighborA, neighborB) {
   const hIn = Math.atan2(center[1] - neighborA[1], center[0] - neighborA[0]);
   const hOut = Math.atan2(neighborB[1] - center[1], neighborB[0] - center[0]);
-  const half = (BUILDING_SEC[id] * BUILDING_LEN_SCALE) / 2;
+  // 상자 길이 = 체류 시간 × SPEED. 절반을 진입/진출 양쪽으로 나눠 붙인다.
+  const half = durationToDistance(BUILDING_DWELL_SEC) / 2;
   const dirIn = dirVec(hIn),
     dirOut = dirVec(hOut);
   const entry = [center[0] - dirIn.x * half, center[1] - dirIn.z * half];
@@ -567,11 +843,117 @@ function buildBuildings(scene, routeNames, waypoints) {
       map: labelTexture(b.id),
       side: THREE.DoubleSide,
     });
-    addGate(scene, gateMat, b.entry, b.dirs[0]);
-    addGate(scene, gateMat, b.exit, b.dirs[2]);
-    addBuildingBox(scene, gateMat, labelMat, b.chain, b.dirs);
+    if (b.id === "B7") {
+      // B7은 T4·J3·C3 세 방향으로 뻗은 'ㅗ'(T자) 건물이다. 두 갈래만 지나가도
+      // 천장·벽은 세 갈래 전부를 덮어야 형태가 산다 → 세 갈래를 다 세운다.
+      buildB7(scene, gateMat, labelMat);
+    } else {
+      // 건물 안에 게이트를 평균 GATE_INTERVAL_SEC마다 하나씩. 통과 시간이 길수록
+      // 문이 늘어난다. 양 끝(진입·진출)을 포함해 고르게 배치한다.
+      const gateCount = Math.max(
+        2,
+        Math.round(BUILDING_DWELL_SEC / GATE_INTERVAL_SEC) + 1,
+      );
+      addGatesAlongChain(scene, gateMat, b.chain, gateCount);
+      addBuildingBox(scene, gateMat, labelMat, b.chain, b.dirs);
+    }
   }
   return placements;
+}
+
+// 폴리라인 체인(진입→중심→진출)을 따라 게이트를 count개 고르게 세운다. 양 끝을
+// 포함하므로 count=2면 진입·진출만, 3이면 가운데에 하나 더 생긴다. 각 게이트의
+// 수직 방향은 그 지점이 놓인 선분의 수직이다(문은 얇아서 마이터가 필요 없다).
+function addGatesAlongChain(scene, mat, chain, count) {
+  const segLens = [];
+  let total = 0;
+  for (let i = 0; i < chain.length - 1; i++) {
+    const l = Math.hypot(
+      chain[i + 1][0] - chain[i][0],
+      chain[i + 1][1] - chain[i][1],
+    );
+    segLens.push(l);
+    total += l;
+  }
+  for (let k = 0; k < count; k++) {
+    const target = (total * k) / (count - 1);
+    let acc = 0,
+      si = 0;
+    while (si < segLens.length - 1 && acc + segLens[si] < target) {
+      acc += segLens[si];
+      si++;
+    }
+    const t = segLens[si] > 0 ? (target - acc) / segLens[si] : 0;
+    const [x0, z0] = chain[si],
+      [x1, z1] = chain[si + 1];
+    const perp = perpVec(Math.atan2(z1 - z0, x1 - x0));
+    addGate(scene, mat, [x0 + (x1 - x0) * t, z0 + (z1 - z0) * t], perp);
+  }
+}
+
+// B7 전용 — 세 갈래(T4/J3/C3)를 각각 center에서 tip까지 독립된 통로로 세운다.
+// 각 갈래: 양옆 벽 + 천장 + 끝에 번호벽. 세 천장이 center에서 겹쳐 가운데 교차
+// 지점까지 빈틈없이 덮는다(세 방향이 축에 정렬돼 있어 겹침이 깔끔하다). 어느
+// 갈래가 진짜 통로인지 겉으론 구분 안 되게 셋을 완전히 똑같이 만든다.
+//
+// 게이트는 좌/우회전이 일어나는 가운데 'ㅁ' 공간엔 두지 않고, 곧게 걷는 갈래에만
+// 둔다(요구사항). tip에서 안쪽으로 GATE_INTERVAL_SEC 간격으로 놓되, 중심에서
+// GATE_CENTER_CLEAR 안쪽엔 두지 않아 교차 공간을 비운다. 갈래 하나가 2.75초라
+// 지금은 갈래마다 tip 문 하나씩이다.
+function buildB7(scene, wallMat, labelMat) {
+  const center = pt("B7");
+  const half = durationToDistance(BUILDING_DWELL_SEC) / 2;
+  const gateStep = durationToDistance(GATE_INTERVAL_SEC);
+  const centerClear = ROAD_HALF * 1.6; // 가운데 회전 공간을 비워 둘 반경
+  for (const nb of ["T4", "J3", "C3"]) {
+    const h = Math.atan2(pt(nb)[1] - center[1], pt(nb)[0] - center[0]);
+    const perp = perpVec(h),
+      dir = dirVec(h);
+    const tip = [center[0] + dir.x * half, center[1] + dir.z * half];
+    addBuildingArm(scene, wallMat, center, tip, perp);
+    for (let d = half; d >= centerClear; d -= gateStep) {
+      addGate(
+        scene,
+        wallMat,
+        [center[0] + dir.x * d, center[1] + dir.z * d],
+        perp,
+      );
+    }
+    addEndWall(scene, labelMat, tip, perp, CEIL, CEIL + BUILDING_H);
+  }
+}
+
+// 한 갈래(직선)의 양옆 벽 + 천장. from(center)에서 to(tip)까지, perp는 진행
+// 방향의 수직. 곧은 한 구간이라 마이터가 필요 없다(B7 세 갈래는 모두 축 정렬).
+function addBuildingArm(scene, mat, from, to, perp) {
+  const yb = CEIL,
+    yt = CEIL + BUILDING_H;
+  const [x0, z0] = from,
+    [x1, z1] = to;
+  for (const side of [-1, 1]) {
+    scene.add(
+      new THREE.Mesh(
+        quadGeometry(
+          [x0 + perp.x * ROAD_HALF * side, yb, z0 + perp.z * ROAD_HALF * side],
+          [x0 + perp.x * ROAD_HALF * side, yt, z0 + perp.z * ROAD_HALF * side],
+          [x1 + perp.x * ROAD_HALF * side, yt, z1 + perp.z * ROAD_HALF * side],
+          [x1 + perp.x * ROAD_HALF * side, yb, z1 + perp.z * ROAD_HALF * side],
+        ),
+        mat,
+      ),
+    );
+  }
+  scene.add(
+    new THREE.Mesh(
+      quadGeometry(
+        [x0 - perp.x * ROAD_HALF, yt, z0 - perp.z * ROAD_HALF],
+        [x0 + perp.x * ROAD_HALF, yt, z0 + perp.z * ROAD_HALF],
+        [x1 + perp.x * ROAD_HALF, yt, z1 + perp.z * ROAD_HALF],
+        [x1 - perp.x * ROAD_HALF, yt, z1 - perp.z * ROAD_HALF],
+      ),
+      mat,
+    ),
+  );
 }
 
 // prototype의 게이트를 그대로 옮겼다 — 기둥 4개(왼쪽 문/가운데 문/오른쪽 문 3칸)
@@ -682,6 +1064,86 @@ function labelTexture(text) {
   return new THREE.CanvasTexture(cnv);
 }
 
+// ── 도착 지점(GOAL) 표시 ──────────────────────────
+// prototype이 도착선(바닥 띠)을 그린 것처럼, 경로 끝(마지막 웨이포인트)에 바닥
+// 결승선 + 양 기둥 + "도착" 배너를 세워 멀리서도 도착 지점을 알아보게 한다.
+// 실제 도착 판정은 update의 s >= totalLength - 1 그대로다(여긴 표시만).
+function buildGoalMarker(scene, waypoints) {
+  const end = waypoints[waypoints.length - 1],
+    prev = waypoints[waypoints.length - 2];
+  const h = Math.atan2(end[1] - prev[1], end[0] - prev[0]);
+  const fwd = dirVec(h),
+    perp = perpVec(h);
+  const mat = new THREE.MeshBasicMaterial({
+    color: COLOR.goal,
+    side: THREE.DoubleSide,
+  });
+  const yTop = CEIL + 1.2;
+
+  // 바닥 결승선 — 도로를 가로지르는 청록 띠(끝점 살짝 앞에 둔다)
+  const b = [end[0] - fwd.x * 1.3, end[1] - fwd.z * 1.3];
+  scene.add(
+    new THREE.Mesh(
+      quadGeometry(
+        [b[0] - perp.x * ROAD_HALF, 0.04, b[1] - perp.z * ROAD_HALF],
+        [b[0] + perp.x * ROAD_HALF, 0.04, b[1] + perp.z * ROAD_HALF],
+        [end[0] + perp.x * ROAD_HALF, 0.04, end[1] + perp.z * ROAD_HALF],
+        [end[0] - perp.x * ROAD_HALF, 0.04, end[1] - perp.z * ROAD_HALF],
+      ),
+      mat,
+    ),
+  );
+
+  // 양 기둥
+  for (const side of [-1, 1]) {
+    const gx = end[0] + perp.x * ROAD_HALF * side,
+      gz = end[1] + perp.z * ROAD_HALF * side;
+    scene.add(
+      new THREE.Mesh(
+        quadGeometry(
+          [gx - perp.x * 0.16, 0, gz - perp.z * 0.16],
+          [gx + perp.x * 0.16, 0, gz + perp.z * 0.16],
+          [gx + perp.x * 0.16, yTop, gz + perp.z * 0.16],
+          [gx - perp.x * 0.16, yTop, gz - perp.z * 0.16],
+        ),
+        mat,
+      ),
+    );
+  }
+
+  // 상단 가로 배너 — "도착" 글자를 크게
+  const bannerMat = new THREE.MeshBasicMaterial({
+    map: goalBannerTexture(),
+    side: THREE.DoubleSide,
+  });
+  scene.add(
+    new THREE.Mesh(
+      quadGeometry(
+        [end[0] - perp.x * ROAD_HALF, CEIL, end[1] - perp.z * ROAD_HALF],
+        [end[0] + perp.x * ROAD_HALF, CEIL, end[1] + perp.z * ROAD_HALF],
+        [end[0] + perp.x * ROAD_HALF, yTop, end[1] + perp.z * ROAD_HALF],
+        [end[0] - perp.x * ROAD_HALF, yTop, end[1] - perp.z * ROAD_HALF],
+      ),
+      bannerMat,
+    ),
+  );
+}
+
+function goalBannerTexture() {
+  const cnv = document.createElement("canvas");
+  cnv.width = 512;
+  cnv.height = 128;
+  const ctx = cnv.getContext("2d");
+  ctx.fillStyle = hexColor(COLOR.goal);
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 84px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("도착", 256, 70);
+  return new THREE.CanvasTexture(cnv);
+}
+
 // 지금 고른 경로에 실제로 있는 건물만 안내한다 — 회전 안내와 같은 원리로,
 // 안 지나갈 건물까지 안내하면 의미가 없다. 어느 문이 정답인지는 매번 무작위.
 function computeDoorHints(placements, routeNames, segments) {
@@ -720,17 +1182,40 @@ function buildCityRoads(scene) {
     ),
   );
 
-  const floorMat = new THREE.MeshBasicMaterial({
-    map: stripeTexture(COLOR.floor, COLOR.floor2),
-  });
-  const wallMat = new THREE.MeshBasicMaterial({
-    map: stripeTexture(COLOR.wall, COLOR.wall2),
-    side: THREE.DoubleSide,
-  });
-  const laneMat = new THREE.MeshBasicMaterial({
-    map: dashTexture(COLOR.lane),
-    transparent: true,
-  });
+  // 일반 도로(S)와 T·C 구간의 바닥·벽 재질. 구조는 전부 같고 색만 다르다.
+  const mats = {
+    S: {
+      floor: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.floor, COLOR.floor2),
+      }),
+      wall: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.wall, COLOR.wall2),
+        side: THREE.DoubleSide,
+      }),
+    },
+    T: {
+      floor: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.tFloor, COLOR.tFloor2),
+      }),
+      wall: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.tWall, COLOR.tWall2),
+        side: THREE.DoubleSide,
+      }),
+    },
+    C: {
+      floor: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.cFloor, COLOR.cFloor2),
+      }),
+      wall: new THREE.MeshBasicMaterial({
+        map: stripeTexture(COLOR.cWall, COLOR.cWall2),
+        side: THREE.DoubleSide,
+      }),
+    },
+    lane: new THREE.MeshBasicMaterial({
+      map: dashTexture(COLOR.lane),
+      transparent: true,
+    }),
+  };
 
   // ROADS는 T/C 표시점 때문에 그래프 노드 하나가 여러 짧은 배열로 쪼개져 있다
   // (예: N1→C1→B3와 B3→N3는 사실 한 길인데 배열이 둘로 나뉨). 이 경계마다
@@ -741,7 +1226,7 @@ function buildCityRoads(scene) {
   const junctions = computeJunctions(ROADS); // 차수 3 이상 = 진짜 갈림길
   const logicalRoads = mergeStraightRoads(ROADS);
   logicalRoads.forEach((road, i) => {
-    buildRoadStrip(scene, road, floorMat, wallMat, laneMat, junctions, i);
+    buildRoadStrip(scene, road, mats, junctions, i);
   });
 }
 
@@ -791,16 +1276,48 @@ function mergeStraightRoads(roads) {
   return segments;
 }
 
-function buildRoadStrip(
-  scene,
-  names,
-  floorMat,
-  wallMat,
-  laneMat,
-  junctions,
-  roadIdx,
-) {
-  const waypoints = names.map(pt);
+// 합쳐진 논리 도로(names)에서, T/C 노드를 중심으로 ZONE_SEC 길이만큼을 잘라
+// 별도의 색 구간으로 표시하기 위해 점 목록을 부풀린다. 모든 T/C 노드는 곧은
+// 구간 위에 있어(좌표로 확인) 자른 지점이 꺾임과 겹치지 않는다 — 그래서 삽입한
+// 경계점은 그 구간과 일직선이고 offsetDirs가 마이터를 잘못 걸지 않는다.
+// 반환: 부풀린 점 목록 pts와, 각 구간(pts[k]→pts[k+1])의 타입(segType[k]: "S"/"T"/"C").
+function expandZones(names, waypoints) {
+  const half = durationToDistance(ZONE_SEC) / 2;
+  const pts = [waypoints[0]];
+  const segType = [];
+  for (let j = 0; j < waypoints.length - 1; j++) {
+    const A = waypoints[j],
+      B = waypoints[j + 1];
+    const zA = nodeZone(names[j]),
+      zB = nodeZone(names[j + 1]);
+    const dx = B[0] - A[0],
+      dz = B[1] - A[1];
+    const L = Math.hypot(dx, dz);
+    // T/C는 서로 인접하지 않으므로(그래프상 사이에 늘 S/B/J가 있다) 한 구간의
+    // 양 끝이 동시에 T/C인 경우는 없다 — 최대 한쪽만 자른다.
+    const h = Math.min(half, L * 0.5);
+    if (zA && !zB) {
+      pts.push([A[0] + (dx / L) * h, A[1] + (dz / L) * h]);
+      segType.push(zA); // A(=T/C 노드) 쪽 절반만 색칠
+      pts.push(B);
+      segType.push("S");
+    } else if (zB && !zA) {
+      pts.push([B[0] - (dx / L) * h, B[1] - (dz / L) * h]);
+      segType.push("S");
+      pts.push(B);
+      segType.push(zB); // B(=T/C 노드) 쪽 절반만 색칠
+    } else {
+      pts.push(B);
+      segType.push("S");
+    }
+  }
+  return { pts, segType };
+}
+
+function buildRoadStrip(scene, names, mats, junctions, roadIdx) {
+  const endName0 = names[0],
+    endName1 = names[names.length - 1];
+  const { pts: waypoints, segType } = expandZones(names, names.map(pt));
   const n = waypoints.length;
   const dirs = offsetDirs(waypoints);
   const floorY = 0.01 + roadIdx * 0.0002; // 겹치는 교차로 바닥끼리 z-fighting 안 나게 살짝 어긋냄
@@ -809,7 +1326,7 @@ function buildRoadStrip(
   // 안으로 당긴다. 바닥·차선은 그대로 waypoints를 써서 교차로까지 꽉 채운다.
   const wallBase = waypoints.map((p) => [...p]);
   if (n >= 2) {
-    if (junctions.has(names[0])) {
+    if (junctions.has(endName0)) {
       const [x0, z0] = waypoints[0],
         [x1, z1] = waypoints[1];
       const len = Math.hypot(x1 - x0, z1 - z0);
@@ -819,7 +1336,7 @@ function buildRoadStrip(
         z0 + ((z1 - z0) / len) * inset,
       ];
     }
-    if (junctions.has(names[n - 1])) {
+    if (junctions.has(endName1)) {
       const [x0, z0] = waypoints[n - 2],
         [x1, z1] = waypoints[n - 1];
       const len = Math.hypot(x1 - x0, z1 - z0);
@@ -839,6 +1356,9 @@ function buildRoadStrip(
     const d0 = dirs[i],
       d1 = dirs[i + 1];
     const vRepeat = Math.max(1, len / 6); // prototype 기준 3유닛마다 색이 바뀌도록 주기 6유닛
+    const mat = mats[segType[i]] || mats.S; // 이 구간이 S/T/C 중 무엇이냐에 따라 색
+    const floorMat = mat.floor,
+      wallMat = mat.wall;
 
     scene.add(
       new THREE.Mesh(
@@ -888,7 +1408,7 @@ function buildRoadStrip(
             [x1 + d1.x * (lo - 0.05), 0.02, z1 + d1.z * (lo - 0.05)],
             vRepeat,
           ),
-          laneMat,
+          mats.lane,
         ),
       );
     }
