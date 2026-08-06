@@ -19,12 +19,7 @@ const TUNING = {
   durAwaySec: 0.225,   // 프로토타입의 고개 드는 속도 2.4rad/s 를 폰 구간 0.54rad 로 환산
   durBackSec: 0.318,   // 같은 방식, 내리는 속도 1.7rad/s. 올라올 때가 더 느린 것이 원본이다
   blurPx:     7,
-  dimAlpha:   0.35,
-
-  // 알림이 사람 색으로 나올 확률. docs/ui-spec.md 가 알림 색을 「랜덤 — 사람과 같기도
-  // 다르기도」로 정했고, 목적이 헷갈리게 만드는 것이다. 0 이면 색이 곧 정답표가 되어
-  // 대화를 읽지 않아도 걸러낼 수 있고, 1 이면 구분이 사라져 알림이 의미가 없다.
-  noticePassesAsPerson: 0.5
+  dimAlpha:   0.35
 };
 
 // rAF 는 숨은 탭에서 호출되지 않는다. 복귀 시 첫 프레임의 시각이 통째로 점프하므로
@@ -224,13 +219,8 @@ function buildPhone(chrome) {
   return el;
 }
 
-// 알림의 색은 문자마다 새로 뽑는다. 같은 알림이 두 번 지나가도 색이 다를 수 있다 —
-// 색을 보고 종류를 학습하지 못하게 하는 것이 목적이므로, 종류당 한 번이 아니라
-// 문자당 한 번이어야 한다 (docs/ui-spec.md §대화 스트림 폰).
 function resolveTone(kind) {
-  if (!KINDS.includes(kind)) return 'person';
-  if (kind === 'notice' && Math.random() < TUNING.noticePassesAsPerson) return 'person';
-  return kind;
+  return KINDS.includes(kind) ? kind : 'person';
 }
 
 function buildBubble(msg) {
