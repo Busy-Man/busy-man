@@ -421,7 +421,8 @@ function injectStyle() {
    그러면 「문자에 답장한다」가 아니라 「문제를 푼다」로 보인다.
    9:16 근처를 잡되 vh 를 넘지 않게 한다 — 노트북 화면에서 잘리면 보기가 안 보인다. */
 .bm-quiz-phone{
-  width:min(330px,86vw); height:min(620px,86vh);
+  /* 기존 크기: width:min(330px,86vw); height:min(620px,86vh); */
+  width:min(320px,84vw); height:min(520px,78vh);
   display:flex; flex-direction:column;
   background:#FBFCFD; border-radius:22px; overflow:hidden;
   box-shadow:0 0 0 8px #20242A, 0 18px 44px rgba(20,24,30,.34);
