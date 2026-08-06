@@ -12,9 +12,7 @@ import { state } from "./state.js";
 
 const stage = document.getElementById("stage");
 
-// phone-a.js/quiz-a.js, content/day1-a.json은 B가 만든 실제 구현이다 — 정식
-// 이름(phone.js/quiz.js/day1.json)은 아직 주석뿐인 빈 스텁이라 그쪽을 부르면
-// 아무것도 못 뜬다. B가 정식 이름으로 옮기면 이 경로 세 곳만 고치면 된다.
+
 const content = await fetch("./content/day1.json").then((r) => r.json());
 const phone = mountPhone(document.body, { content, state });
 const quiz = mountQuiz(document.body, { content, state });

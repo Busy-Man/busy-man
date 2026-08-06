@@ -68,8 +68,7 @@ function durationToDistance(sec) {
 const CEIL = 3.0; // 벽 높이 — prototype 그대로
 const ROAD_HALF = 3.5; // 복도 반폭 — prototype 그대로
 const PLAYER_MARGIN = 0.4; // 벽에 실제로 파묻히지 않게 두는 여유 — prototype 그대로
-const HINT_LOOKAHEAD = 21; // 갈림길·게이트 이 거리 앞에서 토스트를 띄운다(맵 확대에 맞춰 10→21)
-const TOAST_DURATION = 2.2;
+const HINT_LOOKAHEAD = 21; // 갈림길·게이트 이 거리 앞에서 안내를 발화한다(맵 확대에 맞춰 10→21)
 
 // 게이트 — prototype의 4기둥(3통로) 아치를 그대로 가져왔다. LANE_X 값도 동일.
 const GATE_LANE_X = [-3.5, -1.15, 1.15, 3.5];
@@ -572,7 +571,6 @@ export function createWorld(container, opts = {}) {
   ].sort((a, b) => a.s - b.s);
 
   const toast = buildToast(container);
-  showToast(toast, "↑", "직진");
 
   // ── 주행 상태 ────────────────────────────────────
   let x = waypoints[0][0],
@@ -582,7 +580,6 @@ export function createWorld(container, opts = {}) {
   let pvx = 0,
     s = 0,
     arrived = false;
-  let toastTimer = 0;
   let stun = 0, // 행인과 부딪힌 뒤 감속이 남은 시간
     hitCount = 0;
 
@@ -593,7 +590,7 @@ export function createWorld(container, opts = {}) {
     const lane0 = nearestLane(lateralOffset(segments, x, z));
     const trap = stepEventControl(events, prevS, lane0);
     // 갇힘 시작·종료 경계에서만 안내 문구를 띄우고 지운다(요구사항) — sticky라
-    // 일반 토스트(toastTimer)가 알아서 지우지 않으니 여기서 직접 뗀다.
+    // hideToast가 알아서 지우지 않으니 여기서 직접 뗀다.
     if (trap.trapStarted) {
       // 회전 입력으로 미세하게 틀어져 있던 시야를 즉시 정면(그 지점 길의 방향)
       // 으로 바로잡는다(요구사항) — 이후 회전 입력도 막히니 갇힌 동안 계속
@@ -651,8 +648,6 @@ export function createWorld(container, opts = {}) {
       const front = queue.find((e) => !e.resolved);
       if (front) {
         if (!front.announced && s + HINT_LOOKAHEAD >= front.s) {
-          showToast(toast, front.arrow, front.text);
-          toastTimer = TOAST_DURATION;
           front.announced = true;
           if (onNavHint) onNavHint(front);
         }
@@ -704,10 +699,6 @@ export function createWorld(container, opts = {}) {
       arrived = true;
       hideToast(toast); // 도착 UI(결과·시간·다시 시작)는 main.js가 띄운다
     }
-    if (toastTimer > 0) {
-      toastTimer -= dt;
-      if (toastTimer <= 0 && !arrived) hideToast(toast);
-    }
   }
 
   // 현재 맵 그대로 처음부터 다시 — 지오메트리(길·건물·행인 메시)는 그대로 두고
@@ -720,7 +711,6 @@ export function createWorld(container, opts = {}) {
     pvx = 0;
     s = 0;
     arrived = false;
-    toastTimer = 0;
     stun = 0;
     hitCount = 0;
     for (const p of peds) {
@@ -734,7 +724,9 @@ export function createWorld(container, opts = {}) {
       item.resolved = false;
       item.announced = false;
     }
-    showToast(toast, "↑", "직진");
+    // 재시작 시점에 이전 판의 잘못된 차선 경고가 sticky로 남아 있을 수 있어 지운다.
+    toast.dataset.sticky = "";
+    hideToast(toast);
   }
 
   function render() {

@@ -126,23 +126,42 @@ export function mountPhone(root, opts) {
     }
   }
 
-  // TODO(합의 대기) — 길 안내 소유권은 AGENTS.md §3 의 「열림」 항목이다.
-  // 안내 문구는 content/*.json(B)인데 갈림길 판정은 world.js(A)라 §1 의 파일 경계에 걸친다.
-  // **A와 합의하기 전까지 A는 이 함수를 부르지 않는다.** 수신부만 미리 세워 둔 것이고,
-  // 부르지 않는 한 아무 일도 일어나지 않으므로 남겨 둔다 — 합의가 나면 그날 지우거나 살린다.
+  // 길 안내 소유권은 AGENTS.md §3 의 「열림」 항목이었다(안내 문구는 content/*.json(B),
+  // 갈림길 판정은 world.js(A)라 §1 의 파일 경계에 걸쳤다) — main.js가 onNavHint를
+  // pushMap으로 배선하면서 합의됐다.
   //
-  // 형태를 이렇게 잡은 이유: 길 안내는 정적 콘텐츠로 둘 수 없다. 어느 통로가 맞는지는
-  // 매 판 달라지고 world.js 만 안다. 그래서 A가 인덱스만 넘기고 문장은 여기서 만든다.
-  function pushMap(laneIndex) {
+  // world.js의 onNavHint는 { kind, lane|door, ... } 형태의 이벤트 객체를 그대로 넘긴다.
+  // 어느 통로가 맞는지는 매 판 달라지고 world.js만 알므로, 문장 조립은 여기서 한다.
+  function pushMap(event) {
     const names = content.laneNames;
-    if (!Number.isInteger(laneIndex) || laneIndex < 0 || laneIndex >= names.length) {
-      console.error('[phone] pushMap: laneIndex는 0=왼쪽 1=가운데 2=오른쪽 중 하나여야 합니다. 받은 값:', laneIndex);
-      return;
+
+    let text = '';
+
+    switch (event.kind) {
+      case 'turn':
+        text = `${names[event.lane] === '오른쪽' ? '우회전' : names[event.lane] === '왼쪽' ? '좌회전' : '직진'}`;
+        break;
+
+      case 'gate':
+        text = `${names[event.door]}`;
+        break;
+
+      case 'construction':
+        text = `주의! ${names[event.lane]} 공사 중`;
+        break;
+
+      case 'traffic':
+        text = `${names[event.lane]} 안전 차선을 이용하세요.`;
+        break;
+
+      default:
+        return;
     }
+
     pushMessage({
       from: null,
       kind: 'map',
-      text: content.mapTemplate.replace('{lane}', names[laneIndex])
+      text,
     });
   }
 
