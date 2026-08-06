@@ -34,6 +34,18 @@ const DT_MAX = 0.033;
 const KINDS = ['person', 'notice', 'map'];
 
 let styleInjected = false;
+// 퀴즈는 이 기록만 읽는다. 실제 말풍선이 붙은 뒤에 적으므로, 콘텐츠 순서나
+// 스케줄 예정 시각으로 퀴즈를 앞당기는 길이 생기지 않는다.
+let activeTime = 0;
+let renderedAt = new Map();
+
+// quiz.js 를 서로 다른 캐시 버전으로 불러와도 ES 모듈 인스턴스가 갈라지지 않게
+// DOM 이벤트로 시간선을 건넨다. state.js 접점이 아니라 B 내부 UI 전달이다.
+function publishTimeline(reset = false) {
+  document.dispatchEvent(new CustomEvent('bm:phone-timeline', {
+    detail: { activeTime, renderedAt, reset }
+  }));
+}
 
 /**
  * @param {HTMLElement} root
@@ -70,6 +82,9 @@ export function mountPhone(root, opts) {
   let idx = 0;          // content.messages 순회 위치. 소진되면 순환한다
   let last = performance.now();
   let raf = 0;
+  activeTime = 0;
+  renderedAt = new Map();
+  publishTimeline(true);
 
   // 루프는 여기서 한 번만 시작한다. reset() 이 다시 시작하면 루프가 둘이 되어
   // 문자가 두 배 속도로 흐르는데, 화면상으로는 조금 빠른 정도로만 보여서 못 잡는다.
@@ -85,11 +100,17 @@ export function mountPhone(root, opts) {
     //
     // 이 스킵은 스트림에만 적용한다. 퀴즈 카운트다운에 적용하면 영원히 안 준다.
     if (!state.quizOpen) {
+      activeTime += dt;
       acc += dt;
       if (acc >= TUNING.streamSec) {
         acc = 0;
-        pushMessage(content.messages[idx++ % content.messages.length]);
+        const messageIndex = idx++ % content.messages.length;
+        pushMessage(content.messages[messageIndex]);
+        // 같은 메시지가 스트림 순환으로 다시 나와도 최초 관찰 시각을 보존한다.
+        // 이미 본 근거를 다시 흘렸다고 퀴즈 대기 시간이 늘어나면 안 된다.
+        if (!renderedAt.has(messageIndex)) renderedAt.set(messageIndex, activeTime);
       }
+      publishTimeline();
     }
     raf = requestAnimationFrame(tick);
   }
@@ -129,6 +150,9 @@ export function mountPhone(root, opts) {
     while (stream.firstChild) stream.removeChild(stream.firstChild);
     acc = 0;
     idx = 0;
+    activeTime = 0;
+    renderedAt = new Map();
+    publishTimeline(true);
     setVisible(initialVisible);   // 시작 상태로 되돌린다. 여기서 true 를 박으면
   }                               // Space 로 폰을 여는 조작에서 재시작마다 폰이 떠 있다
 

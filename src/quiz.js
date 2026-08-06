@@ -24,6 +24,8 @@
 // 생김새는 docs/ui-spec.md 다. 「문제 상자」가 아니라 **폰**이어야 한다 —
 // 질문이 수신 문자로 읽히지 않으면 대화를 기억하는 게임이라는 것이 전달되지 않는다.
 
+import { advanceQuizSchedule } from './quiz-eligibility.mjs';
+
 // ── 8/6 밸런싱에서 이 블록만 손댄다. 짝: src/phone.js 의 TUNING ──────────────
 const TUNING = {
   countdownSec:   10,    // AGENTS.md §3 확정 — 밸런싱 대상 아님
@@ -75,10 +77,22 @@ export function mountQuiz(root, opts) {
   let countdownLeft = 0;    // > 0 이면 모달이 떠 있다
   let penaltyLeft = 0;      // > 0 이면 감속 중
   let current = null;       // { quiz, el, timerEl }
-  let askLeft = nextGap();  // 다음 질문까지 남은 시간
+  let askLeft = nextGap();  // 0이면 주기는 끝났고, 근거 문자 자격만 기다린다
   let exhausted = false;    // 풀을 다 쓴 뒤 경고를 매 주기 찍지 않으려고 둔다
+  let phoneActiveTime = 0;
+  let sourceRenderedAt = new Map();
   let last = performance.now();
   let raf = requestAnimationFrame(tick);
+
+  // phone.js 와 quiz.js 가 캐시 무력화 쿼리로 서로 다른 모듈 인스턴스가 되어도,
+  // 실제 DOM에 붙은 스트림의 시간선 하나만 읽는다.
+  function onPhoneTimeline(event) {
+    const timeline = event.detail;
+    if (!timeline) return;
+    phoneActiveTime = timeline.activeTime;
+    sourceRenderedAt = new Map(timeline.renderedAt);
+  }
+  document.addEventListener('bm:phone-timeline', onPhoneTimeline);
 
   // 카운트다운과 감속 복귀를 같은 누산기로 센다.
   // setTimeout 을 섞으면 한 파일에 시간 소스가 둘이 되고, 탭을 나간 사이
@@ -98,9 +112,14 @@ export function mountQuiz(root, opts) {
     } else {
       // 모달이 떠 있는 동안에는 다음 질문까지의 시간이 흐르지 않는다. 답하는 데 쓴 10초가
       // 주기에 포함되면 모달이 닫히자마자 다음 질문이 뜨는 구간이 생긴다.
-      askLeft -= dt;
-      if (askLeft <= 0) {
-        askLeft = nextGap();
+      const schedule = advanceQuizSchedule(
+        askLeft,
+        dt,
+        sourceRenderedAt.get(content.quizzes[idx] && content.quizzes[idx].sourceMessageIndex),
+        phoneActiveTime
+      );
+      askLeft = schedule.askLeft;
+      if (schedule.shouldOpen || (idx >= content.quizzes.length && askLeft === 0)) {
         openNext();
       }
     }
@@ -196,6 +215,9 @@ export function mountQuiz(root, opts) {
   function close(el) {
     current = null;
     state.quizOpen = false;
+    // 다음 간격은 결과 판정으로 모달이 닫힌 뒤부터 새로 잰다. 자격 대기로 이미
+    // 끝난 간격을 다시 뽑으면, 근거를 충분히 본 뒤에도 한 번 더 기다리게 된다.
+    askLeft = nextGap();
     // 판정 결과를 잠깐 보여주고 내려보낸다. 즉시 사라지면 맞았는지 모른다.
     setTimeout(() => {
       el.classList.add('bm-quiz-enter');
@@ -211,12 +233,15 @@ export function mountQuiz(root, opts) {
     askLeft = nextGap();
     countdownLeft = 0;
     penaltyLeft = 0;
+    phoneActiveTime = 0;
+    sourceRenderedAt = new Map();
     state.quizOpen = false;
     state.speedMul = 1;
   }
 
   function destroy() {
     cancelAnimationFrame(raf);
+    document.removeEventListener('bm:phone-timeline', onPhoneTimeline);
     reset();
   }
 
@@ -252,6 +277,12 @@ function validateContent(content) {
     }
     if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 2) {
       console.error('[quiz] quizzes[' + i + '].answer 는 0..2 여야 합니다:', q.answer);
+    }
+    if (!Number.isInteger(q.sourceMessageIndex)
+        || q.sourceMessageIndex < 0
+        || !Array.isArray(content.messages)
+        || q.sourceMessageIndex >= content.messages.length) {
+      throw new Error('[quiz] quizzes[' + i + '].sourceMessageIndex 는 messages 범위의 정수여야 합니다: ' + q.sourceMessageIndex);
     }
   });
   ['correct', 'wrong', 'timeout', 'penaltySlow', 'penaltyGauge'].forEach((k) => {

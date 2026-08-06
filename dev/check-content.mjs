@@ -50,6 +50,9 @@ if (!Array.isArray(c.quizzes) || c.quizzes.length === 0) {
     if (typeof q.prompt !== 'string' || !q.prompt) fails.push(`quizzes[${i}].prompt 비어 있음`);
     if (!Array.isArray(q.choices) || q.choices.length !== 3) fails.push(`quizzes[${i}].choices 가 3개가 아님`);
     if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 2) fails.push(`quizzes[${i}].answer = ${q.answer} (0~2)`);
+    if (!Number.isInteger(q.sourceMessageIndex) || q.sourceMessageIndex < 0 || q.sourceMessageIndex >= c.messages.length) {
+      fails.push(`quizzes[${i}].sourceMessageIndex = ${q.sourceMessageIndex} (messages 범위 정수)`);
+    }
     if (new Set(q.choices).size !== q.choices.length) fails.push(`quizzes[${i}].choices 에 같은 보기가 둘 있음`);
   });
 

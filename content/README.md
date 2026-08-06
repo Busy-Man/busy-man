@@ -20,12 +20,16 @@ laneNames    ["왼쪽","가운데","오른쪽"]   길 안내 — 아직 부르�
 mapTemplate  "… {lane}"
 feedback     { correct, wrong, timeout, penaltySlow, penaltyGauge }
 messages     [{ from, kind, text }]      kind = person | notice | map
-quizzes      [{ prompt, choices[3], answer }]
+quizzes      [{ sourceMessageIndex, prompt, choices[3], answer }]
 ```
 
 `penaltySlow`·`penaltyGauge`는 8/5에 늘었다. 오답 패널티가 **감속 / 게이지 감소 2종 중
 랜덤**으로 되살아났는데 룰렛·카드 연출이 보류라, 어느 쪽이 걸렸는지 알릴 곳이
 모달 글자뿐이기 때문이다.
+
+`sourceMessageIndex`는 해당 질문의 답 근거가 되는 `messages` 배열의 0부터 시작하는
+인덱스다. `quiz.js`는 그 메시지가 실제로 표시된 뒤 활성 시간 3초가 지나기 전에는
+질문을 열지 않는다.
 
 ## 분량 — 문자 58개 · 질문 20문항
 
