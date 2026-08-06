@@ -7,10 +7,15 @@ export function isSourceEligible(sourceShownAt, activeTime) {
   return Number.isFinite(sourceShownAt) && activeTime - sourceShownAt >= SOURCE_VISIBLE_SEC;
 }
 
-export function advanceQuizSchedule(askLeft, dt, sourceShownAt, activeTime) {
-  const nextAskLeft = Math.max(0, askLeft - dt);
-  return {
-    askLeft: nextAskLeft,
-    shouldOpen: nextAskLeft === 0 && isSourceEligible(sourceShownAt, activeTime)
-  };
+export function advanceAskTimer(askLeft, dt) {
+  return Math.max(0, askLeft - dt);
+}
+
+export function selectEligibleQuiz(quizzes, renderedAt, askedIds, activeTime, rng = Math.random) {
+  const eligible = quizzes.filter((quiz) => (
+    !askedIds.has(quiz.id)
+    && isSourceEligible(renderedAt.get(quiz.sourceMessageId), activeTime)
+  ));
+  if (eligible.length === 0) return null;
+  return eligible[Math.floor(rng() * eligible.length)];
 }

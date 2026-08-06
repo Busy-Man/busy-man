@@ -1,9 +1,14 @@
 {
-  "chrome": { "clock": "08:41", "channel": "팀 채널" },
-
-  "laneNames": ["왼쪽", "가운데", "오른쪽"],
+  "chrome": {
+    "clock": "08:41",
+    "channel": "팀 채널"
+  },
+  "laneNames": [
+    "왼쪽",
+    "가운데",
+    "오른쪽"
+  ],
   "mapTemplate": "환승 통로 — {lane}",
-
   "feedback": {
     "correct": "맞았어요",
     "wrong": "틀렸어요",
@@ -11,113 +16,2983 @@
     "penaltySlow": "한동안 느려집니다",
     "penaltyGauge": "부스트 게이지가 줄었습니다"
   },
-
-  "messages": [
-    { "from": "알림",    "kind": "notice", "text": "2호선 정상 운행 중" },
-    { "from": "김 팀장", "kind": "person", "text": "다들 출근 중이죠? 오늘 좀 빡셉니다" },
-    { "from": "박PM",   "kind": "person", "text": "오전 스탠드업 10분 미뤄요" },
-    { "from": "박PM",   "kind": "person", "text": "9시 40분으로 옮겼습니다" },
-    { "from": "이 대리", "kind": "person", "text": "어제 배포 롤백됐대요" },
-    { "from": "알림",    "kind": "notice", "text": "캘린더 — 스프린트 리뷰 11:00" },
-    { "from": "최 선임", "kind": "person", "text": "롤백 원인은 결제 모듈이에요" },
-    { "from": "최 선임", "kind": "person", "text": "v2.3.1에서 터졌습니다. v2.1.3은 멀쩡했고요" },
-    { "from": "정 과장", "kind": "person", "text": "안녕하세요, 산출물 언제쯤 받을 수 있을까요" },
-    { "from": "김 팀장", "kind": "person", "text": "정 과장님께는 제가 답드릴게요" },
-
-    { "from": "알림",    "kind": "notice", "text": "배터리 20% 남음" },
-    { "from": "박PM",   "kind": "person", "text": "회의실은 302호로 잡았어요" },
-    { "from": "이 대리", "kind": "person", "text": "203호 아니고요?" },
-    { "from": "박PM",   "kind": "person", "text": "302호 맞아요. 203호는 지난주였습니다" },
-    { "from": "알림",    "kind": "notice", "text": "결제 승인 4,500원 — 카페" },
-    { "from": "최 선임", "kind": "person", "text": "티켓 NAN-417 제가 잡을게요" },
-    { "from": "이 대리", "kind": "person", "text": "NAN-471은 누가 봐요?" },
-    { "from": "최 선임", "kind": "person", "text": "그건 아직 아무도 안 잡았어요" },
-    { "from": "정 과장", "kind": "person", "text": "계약서는 3부 준비해 주시면 됩니다" },
-    { "from": "알림",    "kind": "notice", "text": "캘린더 — 고객사 미팅 14:00" },
-
-    { "from": "김 팀장", "kind": "person", "text": "오늘 미팅 참석자는 다섯 명입니다" },
-    { "from": "박PM",   "kind": "person", "text": "주차권 2장 필요하다고 하셨죠" },
-    { "from": "정 과장", "kind": "person", "text": "네, 두 대로 갑니다" },
-    { "from": "알림",    "kind": "notice", "text": "서버 점검 안내 — 오늘 새벽 2시" },
-    { "from": "이 대리", "kind": "person", "text": "QA 시트는 제가 정리해 둘게요" },
-    { "from": "김 팀장", "kind": "person", "text": "산출물은 목요일 6시까지로 말씀드렸습니다" },
-    { "from": "정 과장", "kind": "person", "text": "목요일이면 저희도 여유 있습니다" },
-    { "from": "알림",    "kind": "notice", "text": "미세먼지 나쁨" },
-    { "from": "최 선임", "kind": "person", "text": "핫픽스는 v2.3.2로 올립니다" },
-    { "from": "박PM",   "kind": "person", "text": "그럼 리뷰 전에 배포되나요?" },
-
-    { "from": "최 선임", "kind": "person", "text": "리뷰 끝나고요. 10시 반에 머지합니다" },
-    { "from": "알림",    "kind": "notice", "text": "새 댓글 — NAN-417" },
-    { "from": "이 대리", "kind": "person", "text": "저 지금 3번 출구쪽이에요" },
-    { "from": "박PM",   "kind": "person", "text": "저는 1번 출구로 나왔어요" },
-    { "from": "김 팀장", "kind": "person", "text": "점심은 12시 반에 갑시다" },
-    { "from": "알림",    "kind": "notice", "text": "적립금 1,200원 소멸 예정" },
-    { "from": "정 과장", "kind": "person", "text": "혹시 데모 환경 주소 다시 주실 수 있나요" },
-    { "from": "최 선임", "kind": "person", "text": "제가 메일로 보내드릴게요" },
-    { "from": "이 대리", "kind": "person", "text": "어제 그 로그 파일은 제가 지웠어요" },
-    { "from": "김 팀장", "kind": "person", "text": "지웠다고요? 백업은요" },
-
-    { "from": "이 대리", "kind": "person", "text": "백업은 있습니다. 걱정 마세요" },
-    { "from": "알림",    "kind": "notice", "text": "캘린더 — 회고 16:30" },
-    { "from": "박PM",   "kind": "person", "text": "회고는 오후 4시 반입니다" },
-    { "from": "최 선임", "kind": "person", "text": "결제 모듈 테스트 케이스가 12개예요" },
-    { "from": "이 대리", "kind": "person", "text": "생각보다 적네요" },
-    { "from": "알림",    "kind": "notice", "text": "택배 도착 — 사무실 프런트" },
-    { "from": "정 과장", "kind": "person", "text": "아 그리고 명함 좀 더 챙겨 오세요" },
-    { "from": "김 팀장", "kind": "person", "text": "명함 넉넉히 가져가겠습니다" },
-    { "from": "박PM",   "kind": "person", "text": "아 제가 잘못 봤네요, 무시하세요" },
-    { "from": "알림",    "kind": "notice", "text": "저장 공간 부족" },
-
-    { "from": "최 선임", "kind": "person", "text": "그거 어제 얘기한 거랑 다른데요" },
-    { "from": "김 팀장", "kind": "person", "text": "오후에 잠깐 봅시다" },
-    { "from": "이 대리", "kind": "person", "text": "QA 시트 링크 다시 주실 수 있나요" },
-    { "from": "박PM",   "kind": "person", "text": "채널 상단에 고정해 뒀어요" },
-    { "from": "알림",    "kind": "notice", "text": "지하철 도착 — 1분 후" },
-    { "from": "정 과장", "kind": "person", "text": "그럼 이따 뵙겠습니다" },
-    { "from": "김 팀장", "kind": "person", "text": "늦지 마요" },
-    { "from": "알림",    "kind": "notice", "text": "알람 — 회의 10분 전" }
+  "bundles": [
+    {
+      "id": "b01-standup-delay",
+      "messages": [
+        {
+          "id": "m01a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "다들 출근 중이죠? 오전 일정만 확인할게요."
+        },
+        {
+          "id": "m01b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "스탠드업은 {q01} 미뤘습니다."
+        },
+        {
+          "id": "m01c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "캘린더에도 바로 반영해 둘게요."
+        }
+      ],
+      "quiz": {
+        "id": "q01",
+        "sourceMessageId": "m01b",
+        "sender": "김 대리",
+        "prompt": "스탠드업이 얼마나 미뤄졌나요?",
+        "field": "q01"
+      }
+    },
+    {
+      "id": "b02-standup-time",
+      "messages": [
+        {
+          "id": "m02a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "변경된 스탠드업 시작 시간 공유합니다."
+        },
+        {
+          "id": "m02b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "오늘은 {q02}에 시작해요."
+        },
+        {
+          "id": "m02c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "네, 그때까지 접속하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q02",
+        "sourceMessageId": "m02b",
+        "sender": "최 과장님",
+        "prompt": "스탠드업은 몇 시에 시작하나요?",
+        "field": "q02"
+      }
+    },
+    {
+      "id": "b03-rollback-module",
+      "messages": [
+        {
+          "id": "m03a",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "어제 배포가 롤백됐다고 들었어요."
+        },
+        {
+          "id": "m03b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "원인은 {q03} 쪽 오류였습니다."
+        },
+        {
+          "id": "m03c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "재현 로그는 티켓에 올려 뒀습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q03",
+        "sourceMessageId": "m03b",
+        "sender": "이 팀장님",
+        "prompt": "롤백 원인 모듈은 어디였나요?",
+        "field": "q03"
+      }
+    },
+    {
+      "id": "b04-bad-version",
+      "messages": [
+        {
+          "id": "m04a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "롤백된 버전을 다시 확인했습니다."
+        },
+        {
+          "id": "m04b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "문제가 난 건 {q04}입니다."
+        },
+        {
+          "id": "m04c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "그 버전은 배포 목록에서 제외해 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q04",
+        "sourceMessageId": "m04b",
+        "sender": "김 대리",
+        "prompt": "문제가 난 버전은 무엇인가요?",
+        "field": "q04"
+      }
+    },
+    {
+      "id": "b05-review-time",
+      "messages": [
+        {
+          "id": "m05a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "캘린더 일정이 업데이트되었습니다."
+        },
+        {
+          "id": "m05b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "스프린트 리뷰 — {q05}"
+        },
+        {
+          "id": "m05c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "리뷰 자료는 미리 올려 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q05",
+        "sourceMessageId": "m05b",
+        "sender": "최 과장님",
+        "prompt": "스프린트 리뷰 시간은 언제인가요?",
+        "field": "q05"
+      }
+    },
+    {
+      "id": "b06-meeting-room",
+      "messages": [
+        {
+          "id": "m06a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "오전 회의실 예약이 바뀌었습니다."
+        },
+        {
+          "id": "m06b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "회의는 {q06}에서 합니다."
+        },
+        {
+          "id": "m06c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "지난주 방이랑 헷갈리지 않게 할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q06",
+        "sourceMessageId": "m06b",
+        "sender": "박PM",
+        "prompt": "회의실은 몇 호인가요?",
+        "field": "q06"
+      }
+    },
+    {
+      "id": "b07-ticket-owner",
+      "messages": [
+        {
+          "id": "m07a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "긴급 티켓 담당을 나눌게요."
+        },
+        {
+          "id": "m07b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "{q07}는 제가 맡겠습니다."
+        },
+        {
+          "id": "m07c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "그럼 저는 남은 검증을 볼게요."
+        }
+      ],
+      "quiz": {
+        "id": "q07",
+        "sourceMessageId": "m07b",
+        "sender": "이 팀장님",
+        "prompt": "최 선임이 맡은 티켓은 무엇인가요?",
+        "field": "q07"
+      }
+    },
+    {
+      "id": "b08-contract-copies",
+      "messages": [
+        {
+          "id": "m08a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "오늘 가져올 계약서 수량 확인 부탁드립니다."
+        },
+        {
+          "id": "m08b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "계약서는 {q08} 준비해 주세요."
+        },
+        {
+          "id": "m08c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "네, 출발 전에 챙기겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q08",
+        "sourceMessageId": "m08b",
+        "sender": "김 대리",
+        "prompt": "계약서는 몇 부 준비해야 하나요?",
+        "field": "q08"
+      }
+    },
+    {
+      "id": "b09-client-meeting",
+      "messages": [
+        {
+          "id": "m09a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "고객사 미팅 알림입니다."
+        },
+        {
+          "id": "m09b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "고객사 미팅 — {q09}"
+        },
+        {
+          "id": "m09c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "점심 전에 자료를 한 번 더 보죠."
+        }
+      ],
+      "quiz": {
+        "id": "q09",
+        "sourceMessageId": "m09b",
+        "sender": "최 과장님",
+        "prompt": "고객사 미팅은 언제인가요?",
+        "field": "q09"
+      }
+    },
+    {
+      "id": "b10-attendees",
+      "messages": [
+        {
+          "id": "m10a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "오늘 미팅 인원을 최종 확인합니다."
+        },
+        {
+          "id": "m10b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "참석자는 총 {q10}입니다."
+        },
+        {
+          "id": "m10c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "명찰도 그 수에 맞춰 준비할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q10",
+        "sourceMessageId": "m10b",
+        "sender": "박PM",
+        "prompt": "오늘 미팅 참석자는 몇 명인가요?",
+        "field": "q10"
+      }
+    },
+    {
+      "id": "b11-parking",
+      "messages": [
+        {
+          "id": "m11a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "고객사에 주차 등록을 요청하려고요."
+        },
+        {
+          "id": "m11b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "주차권은 {q11} 필요합니다."
+        },
+        {
+          "id": "m11c",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "차량 번호는 따로 보내 드릴게요."
+        }
+      ],
+      "quiz": {
+        "id": "q11",
+        "sourceMessageId": "m11b",
+        "sender": "이 팀장님",
+        "prompt": "주차권은 몇 장 필요한가요?",
+        "field": "q11"
+      }
+    },
+    {
+      "id": "b12-cafe-payment",
+      "messages": [
+        {
+          "id": "m12a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "법인카드 결제 알림입니다."
+        },
+        {
+          "id": "m12b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "카페 결제 — {q12}"
+        },
+        {
+          "id": "m12c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "영수증은 경비 처리 폴더에 넣어 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q12",
+        "sourceMessageId": "m12b",
+        "sender": "김 대리",
+        "prompt": "카페 결제 금액은 얼마인가요?",
+        "field": "q12"
+      }
+    },
+    {
+      "id": "b13-maintenance",
+      "messages": [
+        {
+          "id": "m13a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "서버 점검 안내가 왔습니다."
+        },
+        {
+          "id": "m13b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "점검 시작 — {q13}"
+        },
+        {
+          "id": "m13c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "배치 작업은 그 전에 끝내겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q13",
+        "sourceMessageId": "m13b",
+        "sender": "최 과장님",
+        "prompt": "서버 점검은 언제 시작하나요?",
+        "field": "q13"
+      }
+    },
+    {
+      "id": "b14-delivery-deadline",
+      "messages": [
+        {
+          "id": "m14a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "산출물 납기일을 고객사에 전달했습니다."
+        },
+        {
+          "id": "m14b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "마감은 {q14}입니다."
+        },
+        {
+          "id": "m14c",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "그 일정이면 저희도 검토할 수 있겠네요."
+        }
+      ],
+      "quiz": {
+        "id": "q14",
+        "sourceMessageId": "m14b",
+        "sender": "박PM",
+        "prompt": "산출물 마감은 언제인가요?",
+        "field": "q14"
+      }
+    },
+    {
+      "id": "b15-hotfix",
+      "messages": [
+        {
+          "id": "m15a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "핫픽스 태그를 만들었습니다."
+        },
+        {
+          "id": "m15b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "이번 핫픽스는 {q15}로 올립니다."
+        },
+        {
+          "id": "m15c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "리뷰 끝나면 배포 공지할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q15",
+        "sourceMessageId": "m15b",
+        "sender": "이 팀장님",
+        "prompt": "핫픽스 버전은 무엇인가요?",
+        "field": "q15"
+      }
+    },
+    {
+      "id": "b16-exit",
+      "messages": [
+        {
+          "id": "m16a",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "저는 지하철에서 내렸어요."
+        },
+        {
+          "id": "m16b",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "지금 {q16} 쪽입니다."
+        },
+        {
+          "id": "m16c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "로비에서 만나서 같이 갈게요."
+        }
+      ],
+      "quiz": {
+        "id": "q16",
+        "sourceMessageId": "m16b",
+        "sender": "김 대리",
+        "prompt": "이 대리는 어느 출구 쪽인가요?",
+        "field": "q16"
+      }
+    },
+    {
+      "id": "b17-retrospective",
+      "messages": [
+        {
+          "id": "m17a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "회고 일정 알림입니다."
+        },
+        {
+          "id": "m17b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "스프린트 회고 — {q17}"
+        },
+        {
+          "id": "m17c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "회고 전에 메모를 정리해 둘게요."
+        }
+      ],
+      "quiz": {
+        "id": "q17",
+        "sourceMessageId": "m17b",
+        "sender": "최 과장님",
+        "prompt": "회고는 언제 시작하나요?",
+        "field": "q17"
+      }
+    },
+    {
+      "id": "b18-test-cases",
+      "messages": [
+        {
+          "id": "m18a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "해당 모듈 테스트 목록을 세었습니다."
+        },
+        {
+          "id": "m18b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "테스트 케이스는 {q18}입니다."
+        },
+        {
+          "id": "m18c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "우선순위 높은 것부터 돌릴게요."
+        }
+      ],
+      "quiz": {
+        "id": "q18",
+        "sourceMessageId": "m18b",
+        "sender": "박PM",
+        "prompt": "결제 모듈 테스트 케이스는 몇 개인가요?",
+        "field": "q18"
+      }
+    },
+    {
+      "id": "b19-lunch",
+      "messages": [
+        {
+          "id": "m19a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "점심은 미팅 전에 간단히 먹죠."
+        },
+        {
+          "id": "m19b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "식당에서 {q19}에 만납시다."
+        },
+        {
+          "id": "m19c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "예약은 제가 해 둘게요."
+        }
+      ],
+      "quiz": {
+        "id": "q19",
+        "sourceMessageId": "m19b",
+        "sender": "이 팀장님",
+        "prompt": "점심 약속 시간은 언제인가요?",
+        "field": "q19"
+      }
+    },
+    {
+      "id": "b20-demo-address",
+      "messages": [
+        {
+          "id": "m20a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "데모 환경 주소를 다시 요청하셨습니다."
+        },
+        {
+          "id": "m20b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "주소는 {q20}으로 보내 드렸어요."
+        },
+        {
+          "id": "m20c",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "확인했습니다. 접속해 볼게요."
+        }
+      ],
+      "quiz": {
+        "id": "q20",
+        "sourceMessageId": "m20b",
+        "sender": "김 대리",
+        "prompt": "보낸 데모 환경 주소는 무엇인가요?",
+        "field": "q20"
+      }
+    },
+    {
+      "id": "b21-branch",
+      "messages": [
+        {
+          "id": "m21a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "수정본을 어느 브랜치에 올릴지 정합니다."
+        },
+        {
+          "id": "m21b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "오늘 작업은 {q21}에 푸시해 주세요."
+        },
+        {
+          "id": "m21c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "PR도 그쪽으로 열겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q21",
+        "sourceMessageId": "m21b",
+        "sender": "박PM",
+        "prompt": "작업을 올릴 브랜치는 무엇인가요?",
+        "field": "q21"
+      }
+    },
+    {
+      "id": "b22-report-room",
+      "messages": [
+        {
+          "id": "m22a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "오후 보고 장소가 확정됐습니다."
+        },
+        {
+          "id": "m22b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "보고는 {q22}에서 진행합니다."
+        },
+        {
+          "id": "m22c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "프로젝터도 미리 확인해 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q22",
+        "sourceMessageId": "m22b",
+        "sender": "최 과장님",
+        "prompt": "오후 보고는 어디에서 하나요?",
+        "field": "q22"
+      }
+    },
+    {
+      "id": "b23-client-name",
+      "messages": [
+        {
+          "id": "m23a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "오늘 방문 고객사 명단입니다."
+        },
+        {
+          "id": "m23b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "첫 미팅은 {q23} 담당자와 합니다."
+        },
+        {
+          "id": "m23c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "명함은 테이블 위에 둘게요."
+        }
+      ],
+      "quiz": {
+        "id": "q23",
+        "sourceMessageId": "m23b",
+        "sender": "이 팀장님",
+        "prompt": "첫 미팅 고객사는 어디인가요?",
+        "field": "q23"
+      }
+    },
+    {
+      "id": "b24-budget",
+      "messages": [
+        {
+          "id": "m24a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "견적서 예산 항목을 확인 중입니다."
+        },
+        {
+          "id": "m24b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "이번 제안 예산은 {q24}입니다."
+        },
+        {
+          "id": "m24c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "세부 내역도 함께 보내겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q24",
+        "sourceMessageId": "m24b",
+        "sender": "김 대리",
+        "prompt": "제안 예산은 얼마인가요?",
+        "field": "q24"
+      }
+    },
+    {
+      "id": "b25-release-day",
+      "messages": [
+        {
+          "id": "m25a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "다음 정기 배포 일정을 잡았습니다."
+        },
+        {
+          "id": "m25b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "정기 배포는 {q25}에 진행합니다."
+        },
+        {
+          "id": "m25c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "전날까지 검증을 끝내겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q25",
+        "sourceMessageId": "m25b",
+        "sender": "최 과장님",
+        "prompt": "정기 배포는 언제 진행하나요?",
+        "field": "q25"
+      }
+    },
+    {
+      "id": "b26-platform",
+      "messages": [
+        {
+          "id": "m26a",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "고객사에서 테스트 기기를 물어봤어요."
+        },
+        {
+          "id": "m26b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "우선 {q26} 기준으로 검증합니다."
+        },
+        {
+          "id": "m26c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "다른 환경도 이어서 확인할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q26",
+        "sourceMessageId": "m26b",
+        "sender": "박PM",
+        "prompt": "우선 검증하는 환경은 무엇인가요?",
+        "field": "q26"
+      }
+    },
+    {
+      "id": "b27-design-owner",
+      "messages": [
+        {
+          "id": "m27a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "디자인 수정 요청 담당을 정합니다."
+        },
+        {
+          "id": "m27b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "{q27}님이 시안 수정을 맡아요."
+        },
+        {
+          "id": "m27c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "완료되면 고객사에 공유하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q27",
+        "sourceMessageId": "m27b",
+        "sender": "최 과장님",
+        "prompt": "시안 수정을 맡은 사람은 누구인가요?",
+        "field": "q27"
+      }
+    },
+    {
+      "id": "b28-call-time",
+      "messages": [
+        {
+          "id": "m28a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "고객사와 짧은 전화 일정을 잡았습니다."
+        },
+        {
+          "id": "m28b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "통화는 {q28}에 드릴게요."
+        },
+        {
+          "id": "m28c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "그 전까지 질문을 정리해 두죠."
+        }
+      ],
+      "quiz": {
+        "id": "q28",
+        "sourceMessageId": "m28b",
+        "sender": "김 대리",
+        "prompt": "고객사 통화 시간은 언제인가요?",
+        "field": "q28"
+      }
+    },
+    {
+      "id": "b29-station",
+      "messages": [
+        {
+          "id": "m29a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "외근 이동 경로를 맞춰 볼게요."
+        },
+        {
+          "id": "m29b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "{q29}에서 내려서 걸어가면 됩니다."
+        },
+        {
+          "id": "m29c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "네, 출구 안내도 확인했어요."
+        }
+      ],
+      "quiz": {
+        "id": "q29",
+        "sourceMessageId": "m29b",
+        "sender": "이 팀장님",
+        "prompt": "어느 역에서 내리면 되나요?",
+        "field": "q29"
+      }
+    },
+    {
+      "id": "b30-taxi-fare",
+      "messages": [
+        {
+          "id": "m30a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "택시 이용 내역이 등록되었습니다."
+        },
+        {
+          "id": "m30b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "택시비 — {q30}"
+        },
+        {
+          "id": "m30c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "영수증은 비용 처리할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q30",
+        "sourceMessageId": "m30b",
+        "sender": "김 대리",
+        "prompt": "등록된 택시비는 얼마인가요?",
+        "field": "q30"
+      }
+    },
+    {
+      "id": "b31-boarding",
+      "messages": [
+        {
+          "id": "m31a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "출장 항공편 체크인 정보를 받았습니다."
+        },
+        {
+          "id": "m31b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "탑승구는 {q31}입니다."
+        },
+        {
+          "id": "m31c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "공항에 도착하면 다시 확인할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q31",
+        "sourceMessageId": "m31b",
+        "sender": "박PM",
+        "prompt": "출장 항공편 탑승구는 어디인가요?",
+        "field": "q31"
+      }
+    },
+    {
+      "id": "b32-file-format",
+      "messages": [
+        {
+          "id": "m32a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "산출물 파일 형식을 요청하셨습니다."
+        },
+        {
+          "id": "m32b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "최종본은 {q32}로 보내 주세요."
+        },
+        {
+          "id": "m32c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "원본 파일도 함께 압축하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q32",
+        "sourceMessageId": "m32b",
+        "sender": "최 과장님",
+        "prompt": "최종 산출물 형식은 무엇인가요?",
+        "field": "q32"
+      }
+    },
+    {
+      "id": "b33-log-retention",
+      "messages": [
+        {
+          "id": "m33a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "로그 저장 정책을 조정합니다."
+        },
+        {
+          "id": "m33b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "접속 로그는 {q33} 보관합니다."
+        },
+        {
+          "id": "m33c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "이전 로그도 정책에 맞춰 정리할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q33",
+        "sourceMessageId": "m33b",
+        "sender": "김 대리",
+        "prompt": "접속 로그 보관 기간은 얼마인가요?",
+        "field": "q33"
+      }
+    },
+    {
+      "id": "b34-sprint-goal",
+      "messages": [
+        {
+          "id": "m34a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "이번 스프린트 목표를 한 줄로 정리합니다."
+        },
+        {
+          "id": "m34b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "이번 목표는 {q34}입니다."
+        },
+        {
+          "id": "m34c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "관련 티켓에 라벨도 붙여 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q34",
+        "sourceMessageId": "m34b",
+        "sender": "이 팀장님",
+        "prompt": "이번 스프린트 목표는 무엇인가요?",
+        "field": "q34"
+      }
+    },
+    {
+      "id": "b35-static-narrative",
+      "messages": [
+        {
+          "id": "m35a",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "어제 로그 파일을 지웠는데 백업은 있습니다."
+        },
+        {
+          "id": "m35b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "그럼 원본은 복구 가능한 상태인 거죠?"
+        },
+        {
+          "id": "m35c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "네, 백업 폴더에 그대로 남아 있어요."
+        }
+      ],
+      "quiz": {
+        "id": "q35",
+        "sourceMessageId": "m35c",
+        "sender": "최 과장님",
+        "prompt": "로그 원본은 어떤 상태인가요?",
+        "choices": [
+          "완전히 삭제됐습니다",
+          "백업 폴더에 남아 있습니다",
+          "외부 업체에 보냈습니다"
+        ],
+        "answer": 1
+      }
+    },
+    {
+      "id": "b36-approval",
+      "messages": [
+        {
+          "id": "m36a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "결재 문서가 어디까지 왔는지 확인 중입니다."
+        },
+        {
+          "id": "m36b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "지금은 {q36} 결재를 기다리고 있어요."
+        },
+        {
+          "id": "m36c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "오전 중으로 다시 확인하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q36",
+        "sourceMessageId": "m36b",
+        "sender": "박PM",
+        "prompt": "현재 기다리는 결재 단계는 어디인가요?",
+        "field": "q36"
+      }
+    },
+    {
+      "id": "b37-security-code",
+      "messages": [
+        {
+          "id": "m37a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "사무실 출입 코드가 변경되었습니다."
+        },
+        {
+          "id": "m37b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "오늘 출입 코드는 {q37}입니다."
+        }
+      ],
+      "quiz": {
+        "id": "q37",
+        "sourceMessageId": "m37b",
+        "sender": "김 대리",
+        "prompt": "오늘 사무실 출입 코드는 무엇인가요?",
+        "field": "q37"
+      }
+    },
+    {
+      "id": "b38-training",
+      "messages": [
+        {
+          "id": "m38a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "신입 교육 장소를 공지합니다."
+        },
+        {
+          "id": "m38b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "교육은 {q38}에서 열립니다."
+        }
+      ],
+      "quiz": {
+        "id": "q38",
+        "sourceMessageId": "m38b",
+        "sender": "최 과장님",
+        "prompt": "신입 교육 장소는 어디인가요?",
+        "field": "q38"
+      }
+    },
+    {
+      "id": "b39-supply",
+      "messages": [
+        {
+          "id": "m39a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "사무용품 배송 상태입니다."
+        },
+        {
+          "id": "m39b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "모니터 암은 {q39} 도착 예정입니다."
+        }
+      ],
+      "quiz": {
+        "id": "q39",
+        "sourceMessageId": "m39b",
+        "sender": "이 팀장님",
+        "prompt": "모니터 암은 언제 도착하나요?",
+        "field": "q39"
+      }
+    },
+    {
+      "id": "b40-shuttle",
+      "messages": [
+        {
+          "id": "m40a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "행사장 셔틀 출발지를 공유합니다."
+        },
+        {
+          "id": "m40b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "셔틀은 {q40} 앞에서 출발합니다."
+        }
+      ],
+      "quiz": {
+        "id": "q40",
+        "sourceMessageId": "m40b",
+        "sender": "박PM",
+        "prompt": "행사장 셔틀은 어디에서 출발하나요?",
+        "field": "q40"
+      }
+    }
   ],
-
-  "quizzes": [
-    { "sourceMessageIndex": 2, "sender": "김 대리", "prompt": "스탠드업 몇 분 미뤄졌는지 확인 부탁드려요.",
-      "choices": ["5분 미뤄졌습니다", "10분 미뤄졌습니다", "15분 미뤄졌습니다"], "answer": 1 },
-    { "sourceMessageIndex": 3, "sender": "최 과장님", "prompt": "그럼 스탠드업 시간은 몇 시로 잡힌 건가요?",
-      "choices": ["9시 30분입니다", "9시 40분입니다", "9시 50분입니다"], "answer": 1 },
-    { "sourceMessageIndex": 4, "sender": "박PM", "prompt": "어제 배포 건, 현재 상태 공유해 주세요.",
-      "choices": ["롤백된 상태입니다", "그대로 배포됐습니다", "오늘로 미뤄졌습니다"], "answer": 0 },
-    { "sourceMessageIndex": 6, "sender": "이 팀장님", "prompt": "롤백 원인 모듈이 어디였는지 기억나세요?",
-      "choices": ["결제 모듈입니다", "로그인 모듈입니다", "알림 모듈입니다"], "answer": 0 },
-    { "sourceMessageIndex": 7, "sender": "김 대리", "prompt": "문제 난 버전만 다시 알려주세요.",
-      "choices": ["v2.1.3입니다", "v2.3.1입니다", "v2.3.2입니다"], "answer": 1 },
-    { "sourceMessageIndex": 5, "sender": "최 과장님", "prompt": "스프린트 리뷰 시간 확인 부탁드려요.",
-      "choices": ["10시입니다", "11시입니다", "2시입니다"], "answer": 1 },
-    { "sourceMessageIndex": 13, "sender": "박PM", "prompt": "회의실 몇 호인지 다시 공유해 주세요.",
-      "choices": ["203호입니다", "302호입니다", "320호입니다"], "answer": 1 },
-    { "sourceMessageIndex": 15, "sender": "이 팀장님", "prompt": "최 선임님이 맡은 티켓 번호가 뭐였죠?",
-      "choices": ["NAN-174입니다", "NAN-417입니다", "NAN-471입니다"], "answer": 1 },
-    { "sourceMessageIndex": 18, "sender": "김 대리", "prompt": "계약서 몇 부 준비하면 될까요?",
-      "choices": ["2부 준비하겠습니다", "3부 준비하겠습니다", "5부 준비하겠습니다"], "answer": 1 },
-    { "sourceMessageIndex": 19, "sender": "최 과장님", "prompt": "고객사 미팅 시간 확인해 주세요.",
-      "choices": ["13시입니다", "14시입니다", "15시입니다"], "answer": 1 },
-    { "sourceMessageIndex": 20, "sender": "박PM", "prompt": "오늘 미팅 참석 인원 몇 명이죠?",
-      "choices": ["네 명입니다", "다섯 명입니다", "여섯 명입니다"], "answer": 1 },
-    { "sourceMessageIndex": 21, "sender": "이 팀장님", "prompt": "주차권은 몇 장 필요하다고 했죠?",
-      "choices": ["1장 필요합니다", "2장 필요합니다", "3장 필요합니다"], "answer": 1 },
-    { "sourceMessageIndex": 14, "sender": "김 대리", "prompt": "아까 카페 결제 금액 얼마였는지 확인 가능할까요?",
-      "choices": ["4,050원입니다", "4,500원입니다", "5,400원입니다"], "answer": 1 },
-    { "sourceMessageIndex": 23, "sender": "최 과장님", "prompt": "서버 점검 시간 다시 알려주세요.",
-      "choices": ["새벽 1시입니다", "새벽 2시입니다", "새벽 3시입니다"], "answer": 1 },
-    { "sourceMessageIndex": 25, "sender": "박PM", "prompt": "산출물 마감이 언제까지였죠?",
-      "choices": ["수요일 6시까지입니다", "목요일 6시까지입니다", "금요일 6시까지입니다"], "answer": 1 },
-    { "sourceMessageIndex": 28, "sender": "이 팀장님", "prompt": "핫픽스 버전 확인해서 답 주세요.",
-      "choices": ["v2.3.1로 올립니다", "v2.3.2로 올립니다", "v2.4.0으로 올립니다"], "answer": 1 },
-    { "sourceMessageIndex": 31, "sender": "김 대리", "prompt": "이 대리님 지금 어느 출구 쪽인지 아세요?",
-      "choices": ["1번 출구 쪽입니다", "3번 출구 쪽입니다", "5번 출구 쪽입니다"], "answer": 1 },
-    { "sourceMessageIndex": 41, "sender": "최 과장님", "prompt": "회고 시작 시간이 몇 시였죠?",
-      "choices": ["오후 3시 반입니다", "오후 4시 반입니다", "오후 5시 반입니다"], "answer": 1 },
-    { "sourceMessageIndex": 42, "sender": "박PM", "prompt": "결제 모듈 테스트 케이스 수 확인 부탁드려요.",
-      "choices": ["10개입니다", "12개입니다", "20개입니다"], "answer": 1 },
-    { "sourceMessageIndex": 34, "sender": "이 팀장님", "prompt": "점심은 몇 시에 가기로 했나요?",
-      "choices": ["12시에 갑니다", "12시 반에 갑니다", "1시에 갑니다"], "answer": 1 }
-  ]
+  "values": {
+    "q01": {
+      "pool": [
+        {
+          "message": "10분",
+          "choice": "10분 미뤘습니다",
+          "alts": [
+            {
+              "message": "5분",
+              "choice": "5분 미뤘습니다"
+            },
+            {
+              "message": "15분",
+              "choice": "15분 미뤘습니다"
+            }
+          ]
+        },
+        {
+          "message": "15분",
+          "choice": "15분 미뤘습니다",
+          "alts": [
+            {
+              "message": "5분",
+              "choice": "5분 미뤘습니다"
+            },
+            {
+              "message": "10분",
+              "choice": "10분 미뤘습니다"
+            }
+          ]
+        },
+        {
+          "message": "20분",
+          "choice": "20분 미뤘습니다",
+          "alts": [
+            {
+              "message": "10분",
+              "choice": "10분 미뤘습니다"
+            },
+            {
+              "message": "15분",
+              "choice": "15분 미뤘습니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q02": {
+      "pool": [
+        {
+          "message": "9시 40분",
+          "choice": "9시 40분입니다",
+          "alts": [
+            {
+              "message": "9시 30분",
+              "choice": "9시 30분입니다"
+            },
+            {
+              "message": "9시 50분",
+              "choice": "9시 50분입니다"
+            }
+          ]
+        },
+        {
+          "message": "10시",
+          "choice": "10시입니다",
+          "alts": [
+            {
+              "message": "9시 40분",
+              "choice": "9시 40분입니다"
+            },
+            {
+              "message": "10시 20분",
+              "choice": "10시 20분입니다"
+            }
+          ]
+        },
+        {
+          "message": "10시 30분",
+          "choice": "10시 30분입니다",
+          "alts": [
+            {
+              "message": "10시",
+              "choice": "10시입니다"
+            },
+            {
+              "message": "11시",
+              "choice": "11시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q03": {
+      "pool": [
+        {
+          "message": "결제 모듈",
+          "choice": "결제 모듈입니다",
+          "alts": [
+            {
+              "message": "로그인 모듈",
+              "choice": "로그인 모듈입니다"
+            },
+            {
+              "message": "알림 모듈",
+              "choice": "알림 모듈입니다"
+            }
+          ]
+        },
+        {
+          "message": "인증 모듈",
+          "choice": "인증 모듈입니다",
+          "alts": [
+            {
+              "message": "검색 모듈",
+              "choice": "검색 모듈입니다"
+            },
+            {
+              "message": "알림 모듈",
+              "choice": "알림 모듈입니다"
+            }
+          ]
+        },
+        {
+          "message": "주문 모듈",
+          "choice": "주문 모듈입니다",
+          "alts": [
+            {
+              "message": "재고 모듈",
+              "choice": "재고 모듈입니다"
+            },
+            {
+              "message": "쿠폰 모듈",
+              "choice": "쿠폰 모듈입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q04": {
+      "pool": [
+        {
+          "message": "v2.3.1",
+          "choice": "v2.3.1입니다",
+          "alts": [
+            {
+              "message": "v2.1.3",
+              "choice": "v2.1.3입니다"
+            },
+            {
+              "message": "v2.3.2",
+              "choice": "v2.3.2입니다"
+            }
+          ]
+        },
+        {
+          "message": "v3.0.0",
+          "choice": "v3.0.0입니다",
+          "alts": [
+            {
+              "message": "v2.9.9",
+              "choice": "v2.9.9입니다"
+            },
+            {
+              "message": "v3.0.1",
+              "choice": "v3.0.1입니다"
+            }
+          ]
+        },
+        {
+          "message": "v1.8.4",
+          "choice": "v1.8.4입니다",
+          "alts": [
+            {
+              "message": "v1.8.3",
+              "choice": "v1.8.3입니다"
+            },
+            {
+              "message": "v1.9.0",
+              "choice": "v1.9.0입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q05": {
+      "pool": [
+        {
+          "message": "11시",
+          "choice": "11시입니다",
+          "alts": [
+            {
+              "message": "10시",
+              "choice": "10시입니다"
+            },
+            {
+              "message": "12시",
+              "choice": "12시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 2시",
+          "choice": "오후 2시입니다",
+          "alts": [
+            {
+              "message": "오후 1시",
+              "choice": "오후 1시입니다"
+            },
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 4시",
+          "choice": "오후 4시입니다",
+          "alts": [
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            },
+            {
+              "message": "오후 5시",
+              "choice": "오후 5시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q06": {
+      "pool": [
+        {
+          "message": "302호",
+          "choice": "302호입니다",
+          "alts": [
+            {
+              "message": "203호",
+              "choice": "203호입니다"
+            },
+            {
+              "message": "320호",
+              "choice": "320호입니다"
+            }
+          ]
+        },
+        {
+          "message": "504호",
+          "choice": "504호입니다",
+          "alts": [
+            {
+              "message": "405호",
+              "choice": "405호입니다"
+            },
+            {
+              "message": "540호",
+              "choice": "540호입니다"
+            }
+          ]
+        },
+        {
+          "message": "B12호",
+          "choice": "B12호입니다",
+          "alts": [
+            {
+              "message": "B21호",
+              "choice": "B21호입니다"
+            },
+            {
+              "message": "A12호",
+              "choice": "A12호입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q07": {
+      "pool": [
+        {
+          "message": "NAN-417",
+          "choice": "NAN-417입니다",
+          "alts": [
+            {
+              "message": "NAN-471",
+              "choice": "NAN-471입니다"
+            },
+            {
+              "message": "NAN-174",
+              "choice": "NAN-174입니다"
+            }
+          ]
+        },
+        {
+          "message": "APP-208",
+          "choice": "APP-208입니다",
+          "alts": [
+            {
+              "message": "APP-280",
+              "choice": "APP-280입니다"
+            },
+            {
+              "message": "API-208",
+              "choice": "API-208입니다"
+            }
+          ]
+        },
+        {
+          "message": "WEB-356",
+          "choice": "WEB-356입니다",
+          "alts": [
+            {
+              "message": "WEB-365",
+              "choice": "WEB-365입니다"
+            },
+            {
+              "message": "WEB-536",
+              "choice": "WEB-536입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q08": {
+      "pool": [
+        {
+          "message": "3부",
+          "choice": "3부입니다",
+          "alts": [
+            {
+              "message": "2부",
+              "choice": "2부입니다"
+            },
+            {
+              "message": "5부",
+              "choice": "5부입니다"
+            }
+          ]
+        },
+        {
+          "message": "4부",
+          "choice": "4부입니다",
+          "alts": [
+            {
+              "message": "3부",
+              "choice": "3부입니다"
+            },
+            {
+              "message": "5부",
+              "choice": "5부입니다"
+            }
+          ]
+        },
+        {
+          "message": "6부",
+          "choice": "6부입니다",
+          "alts": [
+            {
+              "message": "4부",
+              "choice": "4부입니다"
+            },
+            {
+              "message": "8부",
+              "choice": "8부입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q09": {
+      "pool": [
+        {
+          "message": "오후 2시",
+          "choice": "오후 2시입니다",
+          "alts": [
+            {
+              "message": "오후 1시",
+              "choice": "오후 1시입니다"
+            },
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 3시 30분",
+          "choice": "오후 3시 30분입니다",
+          "alts": [
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            },
+            {
+              "message": "오후 4시",
+              "choice": "오후 4시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 4시",
+          "choice": "오후 4시입니다",
+          "alts": [
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            },
+            {
+              "message": "오후 5시",
+              "choice": "오후 5시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q10": {
+      "pool": [
+        {
+          "message": "다섯 명",
+          "choice": "다섯 명입니다",
+          "alts": [
+            {
+              "message": "네 명",
+              "choice": "네 명입니다"
+            },
+            {
+              "message": "여섯 명",
+              "choice": "여섯 명입니다"
+            }
+          ]
+        },
+        {
+          "message": "여섯 명",
+          "choice": "여섯 명입니다",
+          "alts": [
+            {
+              "message": "다섯 명",
+              "choice": "다섯 명입니다"
+            },
+            {
+              "message": "일곱 명",
+              "choice": "일곱 명입니다"
+            }
+          ]
+        },
+        {
+          "message": "여덟 명",
+          "choice": "여덟 명입니다",
+          "alts": [
+            {
+              "message": "일곱 명",
+              "choice": "일곱 명입니다"
+            },
+            {
+              "message": "아홉 명",
+              "choice": "아홉 명입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q11": {
+      "pool": [
+        {
+          "message": "2장",
+          "choice": "2장입니다",
+          "alts": [
+            {
+              "message": "1장",
+              "choice": "1장입니다"
+            },
+            {
+              "message": "3장",
+              "choice": "3장입니다"
+            }
+          ]
+        },
+        {
+          "message": "3장",
+          "choice": "3장입니다",
+          "alts": [
+            {
+              "message": "2장",
+              "choice": "2장입니다"
+            },
+            {
+              "message": "4장",
+              "choice": "4장입니다"
+            }
+          ]
+        },
+        {
+          "message": "4장",
+          "choice": "4장입니다",
+          "alts": [
+            {
+              "message": "3장",
+              "choice": "3장입니다"
+            },
+            {
+              "message": "5장",
+              "choice": "5장입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q12": {
+      "pool": [
+        {
+          "message": "4,500원",
+          "choice": "4,500원입니다",
+          "alts": [
+            {
+              "message": "4,050원",
+              "choice": "4,050원입니다"
+            },
+            {
+              "message": "5,400원",
+              "choice": "5,400원입니다"
+            }
+          ]
+        },
+        {
+          "message": "5,800원",
+          "choice": "5,800원입니다",
+          "alts": [
+            {
+              "message": "5,080원",
+              "choice": "5,080원입니다"
+            },
+            {
+              "message": "8,500원",
+              "choice": "8,500원입니다"
+            }
+          ]
+        },
+        {
+          "message": "6,200원",
+          "choice": "6,200원입니다",
+          "alts": [
+            {
+              "message": "6,020원",
+              "choice": "6,020원입니다"
+            },
+            {
+              "message": "7,200원",
+              "choice": "7,200원입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q13": {
+      "pool": [
+        {
+          "message": "새벽 2시",
+          "choice": "새벽 2시입니다",
+          "alts": [
+            {
+              "message": "새벽 1시",
+              "choice": "새벽 1시입니다"
+            },
+            {
+              "message": "새벽 3시",
+              "choice": "새벽 3시입니다"
+            }
+          ]
+        },
+        {
+          "message": "새벽 3시",
+          "choice": "새벽 3시입니다",
+          "alts": [
+            {
+              "message": "새벽 2시",
+              "choice": "새벽 2시입니다"
+            },
+            {
+              "message": "새벽 4시",
+              "choice": "새벽 4시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오전 5시",
+          "choice": "오전 5시입니다",
+          "alts": [
+            {
+              "message": "오전 4시",
+              "choice": "오전 4시입니다"
+            },
+            {
+              "message": "오전 6시",
+              "choice": "오전 6시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q14": {
+      "pool": [
+        {
+          "message": "목요일 6시",
+          "choice": "목요일 6시까지입니다",
+          "alts": [
+            {
+              "message": "수요일 6시",
+              "choice": "수요일 6시까지입니다"
+            },
+            {
+              "message": "금요일 6시",
+              "choice": "금요일 6시까지입니다"
+            }
+          ]
+        },
+        {
+          "message": "금요일 정오",
+          "choice": "금요일 정오까지입니다",
+          "alts": [
+            {
+              "message": "목요일 정오",
+              "choice": "목요일 정오까지입니다"
+            },
+            {
+              "message": "금요일 6시",
+              "choice": "금요일 6시까지입니다"
+            }
+          ]
+        },
+        {
+          "message": "월요일 오전",
+          "choice": "월요일 오전까지입니다",
+          "alts": [
+            {
+              "message": "금요일 오후",
+              "choice": "금요일 오후까지입니다"
+            },
+            {
+              "message": "화요일 오전",
+              "choice": "화요일 오전까지입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q15": {
+      "pool": [
+        {
+          "message": "v2.3.2",
+          "choice": "v2.3.2입니다",
+          "alts": [
+            {
+              "message": "v2.3.1",
+              "choice": "v2.3.1입니다"
+            },
+            {
+              "message": "v2.4.0",
+              "choice": "v2.4.0입니다"
+            }
+          ]
+        },
+        {
+          "message": "v3.1.1",
+          "choice": "v3.1.1입니다",
+          "alts": [
+            {
+              "message": "v3.1.0",
+              "choice": "v3.1.0입니다"
+            },
+            {
+              "message": "v3.2.0",
+              "choice": "v3.2.0입니다"
+            }
+          ]
+        },
+        {
+          "message": "v1.9.5",
+          "choice": "v1.9.5입니다",
+          "alts": [
+            {
+              "message": "v1.9.4",
+              "choice": "v1.9.4입니다"
+            },
+            {
+              "message": "v2.0.0",
+              "choice": "v2.0.0입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q16": {
+      "pool": [
+        {
+          "message": "3번 출구",
+          "choice": "3번 출구입니다",
+          "alts": [
+            {
+              "message": "1번 출구",
+              "choice": "1번 출구입니다"
+            },
+            {
+              "message": "5번 출구",
+              "choice": "5번 출구입니다"
+            }
+          ]
+        },
+        {
+          "message": "7번 출구",
+          "choice": "7번 출구입니다",
+          "alts": [
+            {
+              "message": "5번 출구",
+              "choice": "5번 출구입니다"
+            },
+            {
+              "message": "9번 출구",
+              "choice": "9번 출구입니다"
+            }
+          ]
+        },
+        {
+          "message": "중앙 출구",
+          "choice": "중앙 출구입니다",
+          "alts": [
+            {
+              "message": "동쪽 출구",
+              "choice": "동쪽 출구입니다"
+            },
+            {
+              "message": "서쪽 출구",
+              "choice": "서쪽 출구입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q17": {
+      "pool": [
+        {
+          "message": "오후 4시 30분",
+          "choice": "오후 4시 30분입니다",
+          "alts": [
+            {
+              "message": "오후 3시 30분",
+              "choice": "오후 3시 30분입니다"
+            },
+            {
+              "message": "오후 5시 30분",
+              "choice": "오후 5시 30분입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 3시",
+          "choice": "오후 3시입니다",
+          "alts": [
+            {
+              "message": "오후 2시",
+              "choice": "오후 2시입니다"
+            },
+            {
+              "message": "오후 4시",
+              "choice": "오후 4시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 5시",
+          "choice": "오후 5시입니다",
+          "alts": [
+            {
+              "message": "오후 4시",
+              "choice": "오후 4시입니다"
+            },
+            {
+              "message": "오후 6시",
+              "choice": "오후 6시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q18": {
+      "pool": [
+        {
+          "message": "12개",
+          "choice": "12개입니다",
+          "alts": [
+            {
+              "message": "10개",
+              "choice": "10개입니다"
+            },
+            {
+              "message": "20개",
+              "choice": "20개입니다"
+            }
+          ]
+        },
+        {
+          "message": "16개",
+          "choice": "16개입니다",
+          "alts": [
+            {
+              "message": "14개",
+              "choice": "14개입니다"
+            },
+            {
+              "message": "18개",
+              "choice": "18개입니다"
+            }
+          ]
+        },
+        {
+          "message": "24개",
+          "choice": "24개입니다",
+          "alts": [
+            {
+              "message": "22개",
+              "choice": "22개입니다"
+            },
+            {
+              "message": "26개",
+              "choice": "26개입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q19": {
+      "pool": [
+        {
+          "message": "12시 30분",
+          "choice": "12시 30분입니다",
+          "alts": [
+            {
+              "message": "12시",
+              "choice": "12시입니다"
+            },
+            {
+              "message": "1시",
+              "choice": "1시입니다"
+            }
+          ]
+        },
+        {
+          "message": "1시",
+          "choice": "1시입니다",
+          "alts": [
+            {
+              "message": "12시 30분",
+              "choice": "12시 30분입니다"
+            },
+            {
+              "message": "1시 30분",
+              "choice": "1시 30분입니다"
+            }
+          ]
+        },
+        {
+          "message": "1시 30분",
+          "choice": "1시 30분입니다",
+          "alts": [
+            {
+              "message": "1시",
+              "choice": "1시입니다"
+            },
+            {
+              "message": "2시",
+              "choice": "2시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q20": {
+      "pool": [
+        {
+          "message": "demo.busyman.test",
+          "choice": "demo.busyman.test입니다",
+          "alts": [
+            {
+              "message": "dev.busyman.test",
+              "choice": "dev.busyman.test입니다"
+            },
+            {
+              "message": "stage.busyman.test",
+              "choice": "stage.busyman.test입니다"
+            }
+          ]
+        },
+        {
+          "message": "preview.team.test",
+          "choice": "preview.team.test입니다",
+          "alts": [
+            {
+              "message": "review.team.test",
+              "choice": "review.team.test입니다"
+            },
+            {
+              "message": "prod.team.test",
+              "choice": "prod.team.test입니다"
+            }
+          ]
+        },
+        {
+          "message": "qa.project.test",
+          "choice": "qa.project.test입니다",
+          "alts": [
+            {
+              "message": "api.project.test",
+              "choice": "api.project.test입니다"
+            },
+            {
+              "message": "app.project.test",
+              "choice": "app.project.test입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q21": {
+      "pool": [
+        {
+          "message": "release/2.4",
+          "choice": "release/2.4입니다",
+          "alts": [
+            {
+              "message": "release/2.3",
+              "choice": "release/2.3입니다"
+            },
+            {
+              "message": "hotfix/2.4",
+              "choice": "hotfix/2.4입니다"
+            }
+          ]
+        },
+        {
+          "message": "feature/payment",
+          "choice": "feature/payment입니다",
+          "alts": [
+            {
+              "message": "feature/payments",
+              "choice": "feature/payments입니다"
+            },
+            {
+              "message": "fix/payment",
+              "choice": "fix/payment입니다"
+            }
+          ]
+        },
+        {
+          "message": "fix/login",
+          "choice": "fix/login입니다",
+          "alts": [
+            {
+              "message": "feature/login",
+              "choice": "feature/login입니다"
+            },
+            {
+              "message": "fix/logins",
+              "choice": "fix/logins입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q22": {
+      "pool": [
+        {
+          "message": "5층 세미나실",
+          "choice": "5층 세미나실입니다",
+          "alts": [
+            {
+              "message": "4층 세미나실",
+              "choice": "4층 세미나실입니다"
+            },
+            {
+              "message": "6층 세미나실",
+              "choice": "6층 세미나실입니다"
+            }
+          ]
+        },
+        {
+          "message": "1층 라운지",
+          "choice": "1층 라운지입니다",
+          "alts": [
+            {
+              "message": "2층 라운지",
+              "choice": "2층 라운지입니다"
+            },
+            {
+              "message": "지하 1층 라운지",
+              "choice": "지하 1층 라운지입니다"
+            }
+          ]
+        },
+        {
+          "message": "별관 회의실",
+          "choice": "별관 회의실입니다",
+          "alts": [
+            {
+              "message": "본관 회의실",
+              "choice": "본관 회의실입니다"
+            },
+            {
+              "message": "별관 로비",
+              "choice": "별관 로비입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q23": {
+      "pool": [
+        {
+          "message": "다온물산",
+          "choice": "다온물산입니다",
+          "alts": [
+            {
+              "message": "다원물산",
+              "choice": "다원물산입니다"
+            },
+            {
+              "message": "다온유통",
+              "choice": "다온유통입니다"
+            }
+          ]
+        },
+        {
+          "message": "한결교육",
+          "choice": "한결교육입니다",
+          "alts": [
+            {
+              "message": "한빛교육",
+              "choice": "한빛교육입니다"
+            },
+            {
+              "message": "한결물류",
+              "choice": "한결물류입니다"
+            }
+          ]
+        },
+        {
+          "message": "모아은행",
+          "choice": "모아은행입니다",
+          "alts": [
+            {
+              "message": "모아증권",
+              "choice": "모아증권입니다"
+            },
+            {
+              "message": "모두은행",
+              "choice": "모두은행입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q24": {
+      "pool": [
+        {
+          "message": "3,000만 원",
+          "choice": "3,000만 원입니다",
+          "alts": [
+            {
+              "message": "2,000만 원",
+              "choice": "2,000만 원입니다"
+            },
+            {
+              "message": "4,000만 원",
+              "choice": "4,000만 원입니다"
+            }
+          ]
+        },
+        {
+          "message": "4,500만 원",
+          "choice": "4,500만 원입니다",
+          "alts": [
+            {
+              "message": "4,000만 원",
+              "choice": "4,000만 원입니다"
+            },
+            {
+              "message": "5,000만 원",
+              "choice": "5,000만 원입니다"
+            }
+          ]
+        },
+        {
+          "message": "6,000만 원",
+          "choice": "6,000만 원입니다",
+          "alts": [
+            {
+              "message": "5,000만 원",
+              "choice": "5,000만 원입니다"
+            },
+            {
+              "message": "7,000만 원",
+              "choice": "7,000만 원입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q25": {
+      "pool": [
+        {
+          "message": "다음 주 화요일",
+          "choice": "다음 주 화요일입니다",
+          "alts": [
+            {
+              "message": "다음 주 월요일",
+              "choice": "다음 주 월요일입니다"
+            },
+            {
+              "message": "다음 주 수요일",
+              "choice": "다음 주 수요일입니다"
+            }
+          ]
+        },
+        {
+          "message": "금요일 밤",
+          "choice": "금요일 밤입니다",
+          "alts": [
+            {
+              "message": "목요일 밤",
+              "choice": "목요일 밤입니다"
+            },
+            {
+              "message": "토요일 밤",
+              "choice": "토요일 밤입니다"
+            }
+          ]
+        },
+        {
+          "message": "월말 오전",
+          "choice": "월말 오전입니다",
+          "alts": [
+            {
+              "message": "월말 오후",
+              "choice": "월말 오후입니다"
+            },
+            {
+              "message": "월초 오전",
+              "choice": "월초 오전입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q26": {
+      "pool": [
+        {
+          "message": "안드로이드",
+          "choice": "안드로이드입니다",
+          "alts": [
+            {
+              "message": "iOS",
+              "choice": "iOS입니다"
+            },
+            {
+              "message": "웹",
+              "choice": "웹입니다"
+            }
+          ]
+        },
+        {
+          "message": "iOS",
+          "choice": "iOS입니다",
+          "alts": [
+            {
+              "message": "안드로이드",
+              "choice": "안드로이드입니다"
+            },
+            {
+              "message": "태블릿",
+              "choice": "태블릿입니다"
+            }
+          ]
+        },
+        {
+          "message": "웹",
+          "choice": "웹입니다",
+          "alts": [
+            {
+              "message": "모바일 웹",
+              "choice": "모바일 웹입니다"
+            },
+            {
+              "message": "데스크톱 앱",
+              "choice": "데스크톱 앱입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q27": {
+      "pool": [
+        {
+          "message": "서 윤",
+          "choice": "서 윤입니다",
+          "alts": [
+            {
+              "message": "서준",
+              "choice": "서준입니다"
+            },
+            {
+              "message": "서연",
+              "choice": "서연입니다"
+            }
+          ]
+        },
+        {
+          "message": "민지",
+          "choice": "민지입니다",
+          "alts": [
+            {
+              "message": "민준",
+              "choice": "민준입니다"
+            },
+            {
+              "message": "민서",
+              "choice": "민서입니다"
+            }
+          ]
+        },
+        {
+          "message": "도현",
+          "choice": "도현입니다",
+          "alts": [
+            {
+              "message": "도윤",
+              "choice": "도윤입니다"
+            },
+            {
+              "message": "동현",
+              "choice": "동현입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q28": {
+      "pool": [
+        {
+          "message": "오전 11시",
+          "choice": "오전 11시입니다",
+          "alts": [
+            {
+              "message": "오전 10시",
+              "choice": "오전 10시입니다"
+            },
+            {
+              "message": "정오",
+              "choice": "정오입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 1시",
+          "choice": "오후 1시입니다",
+          "alts": [
+            {
+              "message": "정오",
+              "choice": "정오입니다"
+            },
+            {
+              "message": "오후 2시",
+              "choice": "오후 2시입니다"
+            }
+          ]
+        },
+        {
+          "message": "오후 4시",
+          "choice": "오후 4시입니다",
+          "alts": [
+            {
+              "message": "오후 3시",
+              "choice": "오후 3시입니다"
+            },
+            {
+              "message": "오후 5시",
+              "choice": "오후 5시입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q29": {
+      "pool": [
+        {
+          "message": "시청역",
+          "choice": "시청역입니다",
+          "alts": [
+            {
+              "message": "서울역",
+              "choice": "서울역입니다"
+            },
+            {
+              "message": "을지로입구역",
+              "choice": "을지로입구역입니다"
+            }
+          ]
+        },
+        {
+          "message": "강남역",
+          "choice": "강남역입니다",
+          "alts": [
+            {
+              "message": "역삼역",
+              "choice": "역삼역입니다"
+            },
+            {
+              "message": "교대역",
+              "choice": "교대역입니다"
+            }
+          ]
+        },
+        {
+          "message": "판교역",
+          "choice": "판교역입니다",
+          "alts": [
+            {
+              "message": "정자역",
+              "choice": "정자역입니다"
+            },
+            {
+              "message": "야탑역",
+              "choice": "야탑역입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q30": {
+      "pool": [
+        {
+          "message": "18,400원",
+          "choice": "18,400원입니다",
+          "alts": [
+            {
+              "message": "14,800원",
+              "choice": "14,800원입니다"
+            },
+            {
+              "message": "18,040원",
+              "choice": "18,040원입니다"
+            }
+          ]
+        },
+        {
+          "message": "22,600원",
+          "choice": "22,600원입니다",
+          "alts": [
+            {
+              "message": "20,600원",
+              "choice": "20,600원입니다"
+            },
+            {
+              "message": "26,200원",
+              "choice": "26,200원입니다"
+            }
+          ]
+        },
+        {
+          "message": "31,500원",
+          "choice": "31,500원입니다",
+          "alts": [
+            {
+              "message": "30,500원",
+              "choice": "30,500원입니다"
+            },
+            {
+              "message": "35,100원",
+              "choice": "35,100원입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q31": {
+      "pool": [
+        {
+          "message": "12번",
+          "choice": "12번입니다",
+          "alts": [
+            {
+              "message": "11번",
+              "choice": "11번입니다"
+            },
+            {
+              "message": "21번",
+              "choice": "21번입니다"
+            }
+          ]
+        },
+        {
+          "message": "24번",
+          "choice": "24번입니다",
+          "alts": [
+            {
+              "message": "22번",
+              "choice": "22번입니다"
+            },
+            {
+              "message": "42번",
+              "choice": "42번입니다"
+            }
+          ]
+        },
+        {
+          "message": "7번",
+          "choice": "7번입니다",
+          "alts": [
+            {
+              "message": "5번",
+              "choice": "5번입니다"
+            },
+            {
+              "message": "9번",
+              "choice": "9번입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q32": {
+      "pool": [
+        {
+          "message": "PDF",
+          "choice": "PDF입니다",
+          "alts": [
+            {
+              "message": "PPTX",
+              "choice": "PPTX입니다"
+            },
+            {
+              "message": "XLSX",
+              "choice": "XLSX입니다"
+            }
+          ]
+        },
+        {
+          "message": "PPTX",
+          "choice": "PPTX입니다",
+          "alts": [
+            {
+              "message": "PDF",
+              "choice": "PDF입니다"
+            },
+            {
+              "message": "DOCX",
+              "choice": "DOCX입니다"
+            }
+          ]
+        },
+        {
+          "message": "XLSX",
+          "choice": "XLSX입니다",
+          "alts": [
+            {
+              "message": "CSV",
+              "choice": "CSV입니다"
+            },
+            {
+              "message": "PDF",
+              "choice": "PDF입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q33": {
+      "pool": [
+        {
+          "message": "90일",
+          "choice": "90일입니다",
+          "alts": [
+            {
+              "message": "30일",
+              "choice": "30일입니다"
+            },
+            {
+              "message": "180일",
+              "choice": "180일입니다"
+            }
+          ]
+        },
+        {
+          "message": "180일",
+          "choice": "180일입니다",
+          "alts": [
+            {
+              "message": "90일",
+              "choice": "90일입니다"
+            },
+            {
+              "message": "365일",
+              "choice": "365일입니다"
+            }
+          ]
+        },
+        {
+          "message": "1년",
+          "choice": "1년입니다",
+          "alts": [
+            {
+              "message": "6개월",
+              "choice": "6개월입니다"
+            },
+            {
+              "message": "2년",
+              "choice": "2년입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q34": {
+      "pool": [
+        {
+          "message": "결제 안정화",
+          "choice": "결제 안정화입니다",
+          "alts": [
+            {
+              "message": "검색 개선",
+              "choice": "검색 개선입니다"
+            },
+            {
+              "message": "가입 전환",
+              "choice": "가입 전환입니다"
+            }
+          ]
+        },
+        {
+          "message": "온보딩 개선",
+          "choice": "온보딩 개선입니다",
+          "alts": [
+            {
+              "message": "알림 개편",
+              "choice": "알림 개편입니다"
+            },
+            {
+              "message": "인프라 이전",
+              "choice": "인프라 이전입니다"
+            }
+          ]
+        },
+        {
+          "message": "성능 최적화",
+          "choice": "성능 최적화입니다",
+          "alts": [
+            {
+              "message": "디자인 개편",
+              "choice": "디자인 개편입니다"
+            },
+            {
+              "message": "요금 개편",
+              "choice": "요금 개편입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q36": {
+      "pool": [
+        {
+          "message": "재무팀",
+          "choice": "재무팀입니다",
+          "alts": [
+            {
+              "message": "법무팀",
+              "choice": "법무팀입니다"
+            },
+            {
+              "message": "인사팀",
+              "choice": "인사팀입니다"
+            }
+          ]
+        },
+        {
+          "message": "법무팀",
+          "choice": "법무팀입니다",
+          "alts": [
+            {
+              "message": "재무팀",
+              "choice": "재무팀입니다"
+            },
+            {
+              "message": "구매팀",
+              "choice": "구매팀입니다"
+            }
+          ]
+        },
+        {
+          "message": "대표님",
+          "choice": "대표님입니다",
+          "alts": [
+            {
+              "message": "본부장님",
+              "choice": "본부장님입니다"
+            },
+            {
+              "message": "팀장님",
+              "choice": "팀장님입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q37": {
+      "pool": [
+        {
+          "message": "2480",
+          "choice": "2480입니다",
+          "alts": [
+            {
+              "message": "2840",
+              "choice": "2840입니다"
+            },
+            {
+              "message": "2408",
+              "choice": "2408입니다"
+            }
+          ]
+        },
+        {
+          "message": "6173",
+          "choice": "6173입니다",
+          "alts": [
+            {
+              "message": "6713",
+              "choice": "6713입니다"
+            },
+            {
+              "message": "6137",
+              "choice": "6137입니다"
+            }
+          ]
+        },
+        {
+          "message": "9351",
+          "choice": "9351입니다",
+          "alts": [
+            {
+              "message": "9315",
+              "choice": "9315입니다"
+            },
+            {
+              "message": "9531",
+              "choice": "9531입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q38": {
+      "pool": [
+        {
+          "message": "2층 교육장",
+          "choice": "2층 교육장입니다",
+          "alts": [
+            {
+              "message": "1층 교육장",
+              "choice": "1층 교육장입니다"
+            },
+            {
+              "message": "3층 교육장",
+              "choice": "3층 교육장입니다"
+            }
+          ]
+        },
+        {
+          "message": "별관 강의실",
+          "choice": "별관 강의실입니다",
+          "alts": [
+            {
+              "message": "본관 강의실",
+              "choice": "본관 강의실입니다"
+            },
+            {
+              "message": "별관 회의실",
+              "choice": "별관 회의실입니다"
+            }
+          ]
+        },
+        {
+          "message": "온라인 회의실",
+          "choice": "온라인 회의실입니다",
+          "alts": [
+            {
+              "message": "대면 회의실",
+              "choice": "대면 회의실입니다"
+            },
+            {
+              "message": "1층 로비",
+              "choice": "1층 로비입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q39": {
+      "pool": [
+        {
+          "message": "오늘 오후",
+          "choice": "오늘 오후입니다",
+          "alts": [
+            {
+              "message": "오늘 오전",
+              "choice": "오늘 오전입니다"
+            },
+            {
+              "message": "내일 오후",
+              "choice": "내일 오후입니다"
+            }
+          ]
+        },
+        {
+          "message": "내일 오전",
+          "choice": "내일 오전입니다",
+          "alts": [
+            {
+              "message": "오늘 오후",
+              "choice": "오늘 오후입니다"
+            },
+            {
+              "message": "내일 오후",
+              "choice": "내일 오후입니다"
+            }
+          ]
+        },
+        {
+          "message": "금요일",
+          "choice": "금요일입니다",
+          "alts": [
+            {
+              "message": "목요일",
+              "choice": "목요일입니다"
+            },
+            {
+              "message": "월요일",
+              "choice": "월요일입니다"
+            }
+          ]
+        }
+      ]
+    },
+    "q40": {
+      "pool": [
+        {
+          "message": "시청 앞",
+          "choice": "시청 앞입니다",
+          "alts": [
+            {
+              "message": "서울역 앞",
+              "choice": "서울역 앞입니다"
+            },
+            {
+              "message": "광화문 앞",
+              "choice": "광화문 앞입니다"
+            }
+          ]
+        },
+        {
+          "message": "강남역 5번 출구",
+          "choice": "강남역 5번 출구입니다",
+          "alts": [
+            {
+              "message": "강남역 3번 출구",
+              "choice": "강남역 3번 출구입니다"
+            },
+            {
+              "message": "역삼역 5번 출구",
+              "choice": "역삼역 5번 출구입니다"
+            }
+          ]
+        },
+        {
+          "message": "회사 정문",
+          "choice": "회사 정문입니다",
+          "alts": [
+            {
+              "message": "회사 후문",
+              "choice": "회사 후문입니다"
+            },
+            {
+              "message": "회사 주차장",
+              "choice": "회사 주차장입니다"
+            }
+          ]
+        }
+      ]
+    }
+  }
 }
