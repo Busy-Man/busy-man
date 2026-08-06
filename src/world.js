@@ -539,21 +539,28 @@ export function createWorld(container) {
     segments,
     totalLength,
   );
-  // 건물 게이트 — 정답 문을 여기서 한 번만 뽑는다. 안내·판정 둘 다 이 배열을 본다
-  // (update()에서 직접 안내를 띄우고 틀리면 되돌린다 — 회전/신호등처럼 통과 여부가
-  // 있는 이벤트라 nextHint의 "한 번 보여주면 끝" 방식이 아니라 재판정이 필요하다).
-  const gateEvents = computeGateEvents(buildings, routeNames, segments);
-
-  // 회전 안내(turn)·이벤트 안내(공사/신호)를 거리(s) 순서 하나로 합친다 — 토스트
-  // 하나가 다 처리하니 순서만 맞으면 된다. 게이트 안내는 여기 안 낀다 — 실패하면
-  // 되돌아가 같은 문을 다시 봐야 하므로 gateEvents가 자기 몫을 직접 띄운다.
-  const hints = [
+  // 안내 큐 — 회전·게이트·공사장/신호등 경고를 거리(s) 순서 하나로 합친다.
+  // update()는 이 중 "아직 안 끝난 것 중 가장 가까운 것"(맨 앞) 하나만 본다.
+  // 회전·경고는 판정이 없어서 도착하는 순간 그냥 resolved=true(통과)가 되고,
+  // 게이트만 차선이 틀리면 resolved를 안 켜고 되돌린다 — 실패해도 소비되지
+  // 않고 큐 맨 앞에 그대로 남는 이유(요구사항). door(정답 차선)는 게임 시작
+  // 시 게이트마다 한 번만 뽑고 reset()에서도 유지한다(T/C 랜덤과 같은 원칙).
+  const queue = [
     ...computeTurnHints(waypoints, routeNames).map((h) => ({
+      kind: "turn",
       s: h.s,
       arrow: h.dir === "left" ? "←" : h.dir === "right" ? "→" : "↑",
       text: h.dir === "left" ? "왼쪽" : h.dir === "right" ? "오른쪽" : "직진",
+      resolved: false,
+      announced: false,
     })),
-    ...navHints,
+    ...navHints.map((h) => ({
+      ...h,
+      kind: "warn",
+      resolved: false,
+      announced: false,
+    })),
+    ...computeGateEvents(buildings, routeNames, segments),
   ].sort((a, b) => a.s - b.s);
 
   const toast = buildToast(container);
@@ -567,8 +574,7 @@ export function createWorld(container) {
   let pvx = 0,
     s = 0,
     arrived = false;
-  let nextHint = 0,
-    toastTimer = 0;
+  let toastTimer = 0;
   let stun = 0, // 행인과 부딪힌 뒤 감속이 남은 시간
     hitCount = 0;
 
@@ -629,31 +635,41 @@ export function createWorld(container) {
     // (바리게이트에 막히면 s가 그 앞으로 고정된다).
     ({ x, z, s } = stepEventVisual(events, dt, prevS, x, z, heading, segments));
 
-    // 게이트 — 이 프레임에 진입선(ev.s)을 지났는데 정답 문(door)이 아니면 3초
-    // 뒤로 보낸다. resolved를 켜지 않으므로 큐(gateEvents)는 그대로 남고,
-    // announced만 다시 꺼서 되돌아간 자리에서 같은 안내가 다시 뜬다(요구사항 —
-    // 실패해도 이벤트를 소비하지 않고 큐 맨 앞을 유지한다).
+    // 안내 큐 — 맨 앞(아직 안 끝난 것 중 가장 가까운 것) 하나만 본다. 뒤에
+    // 있는 항목은 앞이 안 끝나면 절대 안내되지 않는다 — 여러 항목이 각자
+    // lookahead로 동시에 안내되던 예전 방식(간격이 lookahead보다 좁은 게이트가
+    // 연달아 있으면 뒤엣것이 먼저 뜨고 못 보고 지나치던 문제)이 이걸로 없어진다.
     if (!arrived && !trap.trapped) {
-      for (const ev of gateEvents) {
-        if (ev.resolved) continue;
-        if (!ev.announced && s + HINT_LOOKAHEAD >= ev.s) {
-          showToast(toast, DOOR_ARROW[ev.door], DOOR_NAME[ev.door]);
+      const front = queue.find((e) => !e.resolved);
+      if (front) {
+        if (!front.announced && s + HINT_LOOKAHEAD >= front.s) {
+          showToast(toast, front.arrow, front.text);
           toastTimer = TOAST_DURATION;
-          ev.announced = true;
+          front.announced = true;
         }
-        if (prevS < ev.s && s >= ev.s) {
-          const lane = nearestLane(lateralOffset(segments, x, z), GATE_DOOR_X);
-          if (lane === ev.door) {
-            ev.resolved = true;
+        if (prevS < front.s && s >= front.s) {
+          if (front.kind === "gate") {
+            const lane = nearestLane(
+              lateralOffset(segments, x, z),
+              GATE_DOOR_X,
+            );
+            if (lane === front.door) {
+              front.resolved = true;
+            } else {
+              // 잘못된 문 — 큐를 소비하지 않는다(resolved 유지 false). 되돌린
+              // 자리에서 다시 접근하면 announced가 꺼져 있어 같은 안내가 다시 뜬다.
+              s = Math.max(0, s - durationToDistance(WRONG_CHOICE_REWIND));
+              const p = pointAtArcLength(segments, s, 0);
+              x = p.x;
+              z = p.z;
+              heading = segHeadingAt(segments, s);
+              headingVel = 0;
+              pvx = 0;
+              front.announced = false;
+            }
           } else {
-            s = Math.max(0, s - durationToDistance(WRONG_CHOICE_REWIND));
-            const p = pointAtArcLength(segments, s, 0);
-            x = p.x;
-            z = p.z;
-            heading = segHeadingAt(segments, s);
-            headingVel = 0;
-            pvx = 0;
-            ev.announced = false;
+            // 회전·공사장/신호등 경고는 판정이 없다 — 지나치면 그냥 통과.
+            front.resolved = true;
           }
         }
       }
@@ -675,16 +691,6 @@ export function createWorld(container) {
       pvx = hit.pushSign * HIT_KNOCK; // 옆으로 튕긴다
     }
 
-    if (
-      !arrived &&
-      !trap.trapped &&
-      nextHint < hints.length &&
-      s + HINT_LOOKAHEAD >= hints[nextHint].s
-    ) {
-      showToast(toast, hints[nextHint].arrow, hints[nextHint].text);
-      toastTimer = TOAST_DURATION;
-      nextHint++;
-    }
     if (!arrived && s >= totalLength - 1) {
       arrived = true;
       hideToast(toast); // 도착 UI(결과·시간·다시 시작)는 main.js가 띄운다
@@ -705,7 +711,6 @@ export function createWorld(container) {
     pvx = 0;
     s = 0;
     arrived = false;
-    nextHint = 0;
     toastTimer = 0;
     stun = 0;
     hitCount = 0;
@@ -714,11 +719,11 @@ export function createWorld(container) {
       p.hit = false;
     }
     resetEvents(events);
-    // 문 번호(door)는 다시 뽑지 않는다 — T/C 차선과 같은 원칙(같은 판 안에서는
-    // 랜덤이 한 번뿐). 통과 여부만 되돌린다.
-    for (const ev of gateEvents) {
-      ev.resolved = false;
-      ev.announced = false;
+    // 문 번호(door) 등 게임 시작 시 뽑은 값은 다시 뽑지 않는다 — T/C 차선과
+    // 같은 원칙(같은 판 안에서는 랜덤이 한 번뿐). 큐 진행 상태만 되돌린다.
+    for (const item of queue) {
+      item.resolved = false;
+      item.announced = false;
     }
     showToast(toast, "↑", "직진");
   }
@@ -1836,10 +1841,14 @@ function computeGateEvents(placements, routeNames, segments) {
         ? computeB7GatePoints(b)
         : computeChainGatePoints(b.chain, REGULAR_GATE_COUNT);
     for (const [gx, gz] of points) {
+      const door = Math.floor(Math.random() * 3);
       events.push({
+        kind: "gate",
         id: b.id,
         s: nearestArcLength(segments, gx, gz),
-        door: Math.floor(Math.random() * 3),
+        door,
+        arrow: DOOR_ARROW[door],
+        text: DOOR_NAME[door],
         resolved: false, // 맞는 문으로 통과하면 true — 그 뒤로는 다시 판정 안 함
         announced: false, // 안내를 이미 띄웠으면 true — 되돌아가면 다시 false로
       });
