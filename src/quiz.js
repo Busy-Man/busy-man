@@ -214,14 +214,17 @@ export function mountQuiz(root, opts) {
 
   function close(el) {
     current = null;
-    state.quizOpen = false;
     // 다음 간격은 결과 판정으로 모달이 닫힌 뒤부터 새로 잰다. 자격 대기로 이미
     // 끝난 간격을 다시 뽑으면, 근거를 충분히 본 뒤에도 한 번 더 기다리게 된다.
     askLeft = nextGap();
     // 판정 결과를 잠깐 보여주고 내려보낸다. 즉시 사라지면 맞았는지 모른다.
     setTimeout(() => {
       el.classList.add('bm-quiz-enter');
-      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 260);
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        // 모달이 완전히 사라진 뒤 게임 재개
+        state.quizOpen = false;
+      }, 260);
     }, 900);
   }
 
