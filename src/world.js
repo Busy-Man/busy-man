@@ -29,8 +29,8 @@
 + 신호등, 공사장 추가 (바리게이트 · 횡단보도 군중 이벤트)
 + 도착지 표시
 - B7 건물 안 그래픽 버그 수정
-- 바리게이트 시작점에서 올라는 걸로 수정
-- 바리게이트 유저 접근 2초 -> 0.5초 전으로 수정
++ 바리게이트 시작점에서 올라는 걸로 수정
++ 바리게이트 유저 접근 2초 -> 1초 전으로 수정
 - 신호등 행인 배치 세로 일자X -> 시작점에 가로로 2줄로 수정
 - 루트셋 확장 검토
 - 가속 기능 추가(가속키: w)
@@ -156,7 +156,7 @@ const LANE_NAME = ["왼쪽", "가운데", "오른쪽"];
 const LANE_HALF = 1.05; // 차선 반폭
 
 // ── 공사장(C) 바리게이트 ──
-const BARR_LEAD_SEC = 2; // 도착 약 2초 전 바닥에서 올라온다
+const BARR_LEAD_SEC = 1; // 도착 약 1초 전 바닥에서 올라온다
 const BARR_RISE_SEC = 0.6; // 올라오는 애니메이션 시간
 const BARR_H = 2.3; // 다 올라온 높이
 const BARR_STOP = 0.9; // 막힐 때 바리게이트 이만큼 앞에서 멈춘다
@@ -164,7 +164,7 @@ const BARR_STOP = 0.9; // 막힐 때 바리게이트 이만큼 앞에서 멈춘�
 // ── 신호등(T) ──
 const TL_HALF_SEC = 2; // 구역 반깊이(초) → 정상 통과 약 4초(2×half/ SPEED)
 const TL_TRAP_SEC = 6; // 안전 차선을 못 타면 약 6초 갇혀 천천히 끌려간다
-const TL_OPEN_LEAD_SEC = 0.5; // 충돌 약 0.5초 전 안전 차선이 열린다
+const TL_OPEN_LEAD_SEC = 1; // 충돌 약 0.5초 전 안전 차선이 열린다
 const TL_CROWD_GAP = 1.6; // 군중 앞뒤 간격(줄 간격)
 const TL_STEP = 5.5; // 군중이 옆 차선으로 비켜서는 속도(유닛/초)
 
@@ -953,7 +953,7 @@ function createEvents(scene, routeNames, segments, totalLength) {
 
     if (zone === "C") {
       const lane = Math.floor(Math.random() * 3);
-      const barrS = centerS + durationToDistance(ZONE_SEC) / 2; // 공사장 출구
+      const barrS = centerS - durationToDistance(ZONE_SEC) / 2; // 공사장 출구
       const mesh = buildBarricadeMesh(segments, barrS, lane, barrMat);
       scene.add(mesh);
       events.push({ type: "C", lane, centerS, barrS, mesh, risen: 0 });
