@@ -1,11 +1,12 @@
 {
+  "description": "프롬프트 원문을 docs/ai-log/raw/ 에 쌓는다. 스크립트는 .claude/settings.json 과 공유한다",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/log-prompt.mjs prompt \"Claude Code\"",
+            "command": "node .agents/hooks/log-prompt.mjs prompt Codex",
             "timeout": 5
           }
         ]
@@ -16,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/log-prompt.mjs resolve \"Claude Code\"",
+            "command": "node .agents/hooks/log-prompt.mjs resolve Codex",
             "timeout": 5
           }
         ]

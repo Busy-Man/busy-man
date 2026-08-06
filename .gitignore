@@ -1,6 +1,7 @@
 # --- 에이전트 운영 산출물 ---------------------------------------------------
-# OMC가 세션마다 쓰는 상태 파일. 팀원과 공유할 이유가 없고 충돌만 만든다.
+# OMC, OMX가 세션마다 쓰는 상태 파일. 팀원과 공유할 이유가 없고 충돌만 만든다.
 .omc/
+.omx/
 
 # 개인 로컬 설정. .claude/settings.json(공유 훅)은 반대로 커밋한다.
 .claude/settings.local.json
@@ -35,4 +36,5 @@ docs/ai-log/raw/*.md
 
 # --- 커밋하는 것 (참고) -----------------------------------------------------
 # docs/ai-log/specs/   AI가 만든 명세. .omc/에 두면 사라진다.
-# .claude/settings.json, .claude/skills/   팀 공유 자산이다.
+# .agents/             훅·스킬 정본. 도구 중립이라 여기 둔다.
+# .claude/settings.json, .claude/skills/, .codex/hooks.json   팀 공유 자산이다.
