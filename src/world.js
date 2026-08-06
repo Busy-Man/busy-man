@@ -496,12 +496,13 @@ function buildRouteWaypoints(hops) {
   return { names, waypoints: names.map(pt) };
 }
 
-// opts.onNavHint(laneIndex) — 회전·게이트 안내가 새로 뜰 때마다 부른다(0=왼쪽
-// 1=가운데 2=오른쪽). main.js가 이 값을 폰(phone.pushMap)에 그대로 넘긴다.
-// world.js는 phone.js를 몰라도 되게(§1 파일 경계) 콜백 하나로만 내보낸다 —
-// state.onGate/fireGate와 같은 모양의, 접점이 아닌 "밖으로 내주는 함수".
-// 신호등·공사장 경고는 안 부른다 — "이 차선 피하라"는 뜻이라 pushMap("이
-// 차선으로 가라")과 의미가 반대일 수 있다(world.js 자체 토스트로만 남는다).
+// opts.onNavHint(event) — 큐 맨 앞 항목이 새로 안내될 때마다 그 항목 전체를
+// 그대로 넘긴다(회전·게이트·공사장·신호등 전부). main.js가 이걸 그대로
+// phone.pushMap(event)에 넘기면, 폰 쪽이 event.kind로 문장을 고른다
+// (turn→event.lane, gate→event.door, construction/traffic→event.lane —
+// phone-a.js pushMap 참고). world.js는 phone.js를 몰라도 되게(§1 파일 경계)
+// 콜백 하나로만 내보낸다 — state.onGate/fireGate와 같은 모양의, 접점이 아닌
+// "밖으로 내주는 함수".
 export function createWorld(container, opts = {}) {
   const onNavHint = opts.onNavHint;
   const canvas = document.createElement("canvas");
@@ -564,7 +565,6 @@ export function createWorld(container, opts = {}) {
     })),
     ...navHints.map((h) => ({
       ...h,
-      kind: "warn",
       resolved: false,
       announced: false,
     })),
@@ -654,9 +654,7 @@ export function createWorld(container, opts = {}) {
           showToast(toast, front.arrow, front.text);
           toastTimer = TOAST_DURATION;
           front.announced = true;
-          if (onNavHint && front.kind !== "warn") {
-            onNavHint(front.kind === "gate" ? front.door : front.lane);
-          }
+          if (onNavHint) onNavHint(front);
         }
         if (prevS < front.s && s >= front.s) {
           if (front.kind === "gate") {
@@ -1098,9 +1096,11 @@ function createEvents(scene, routeNames, segments, totalLength) {
       scene.add(mesh);
       events.push({ type: "C", lane, centerS, barrS, mesh, risen: 0 });
       navHints.push({
+        kind: "construction",
         s: centerS - durationToDistance(BARR_LEAD_SEC) - 6,
         arrow: "⚠",
         text: `주의!! ${LANE_NAME[lane]} 공사 중`,
+        lane, // phone.pushMap(event)이 event.lane으로 읽는다 — 막힌(피해야 할) 차선
       });
     } else {
       const safeLane = Math.floor(Math.random() * 3);
@@ -1132,9 +1132,11 @@ function createEvents(scene, routeNames, segments, totalLength) {
         trapSpeed: (endS - startS) / TL_TRAP_SEC,
       });
       navHints.push({
+        kind: "traffic",
         s: startS - 6,
         arrow: "↑",
         text: `${LANE_NAME[safeLane]}로 건너기`,
+        lane: safeLane, // phone.pushMap(event)이 event.lane으로 읽는다 — 건너야 할(안전한) 차선
       });
     }
   }
