@@ -75,6 +75,19 @@ const TOAST_DURATION = 2.2;
 const GATE_LANE_X = [-3.5, -1.15, 1.15, 3.5];
 const DOOR_NAME = ["왼쪽 문", "가운데 문", "오른쪽 문"];
 const DOOR_ARROW = ["←", "↑", "→"];
+// 기둥 4개 사이 3칸(문)의 중심 — nearestLane으로 "지금 몇 번 문 앞인지" 판정할 때 쓴다.
+// LANE_X(신호등 차선, ±2.1)와 값이 달라서 따로 둔다 — 게이트 폭은 기둥 간격에서 나온다.
+const GATE_DOOR_X = [
+  (GATE_LANE_X[0] + GATE_LANE_X[1]) / 2,
+  (GATE_LANE_X[1] + GATE_LANE_X[2]) / 2,
+  (GATE_LANE_X[2] + GATE_LANE_X[3]) / 2,
+];
+
+// 갈림길·게이트를 잘못 선택했을 때 되돌리는 거리 — "3초 전"을 위치가 아니라
+// 거리로 환산한 것(SPEED × 3초). 되돌린 자리에서 다시 판정선에 접근하면
+// 같은 이벤트가 다시 안내된다(재안내) — 실패해도 큐(이벤트)는 그대로 두고
+// resolved만 안 켠다.
+const WRONG_CHOICE_REWIND = 2;
 const BUILDING_H = 4.0; // 게이트 위에 얹는 상자 높이
 // 건물 안에 머무는 시간(초). 건물은 노드에 얹힌 상자라 플레이어가 상자 길이만큼
 // 통과하고, 체류 시간 = 상자 길이 / SPEED다. 요구사항: 최소 5초 이상.
@@ -86,6 +99,12 @@ const BUILDING_DWELL_SEC = 5.5;
 // 길수록 문 개수도 자연히 늘어난다(개수 = 통과시간 / 이 값, 반올림). 길이는
 // durationToDistance로 나오므로 초만 정하면 위치가 따라온다.
 const GATE_INTERVAL_SEC = 3;
+// 건물 하나(B7 제외)에 세우는 게이트 개수 — 렌더링과 판정이 같은 수를 보게
+// 상수 하나로 뽑아 둔다. 양 끝(진입·진출) 포함, 그 사이는 고르게 나눈다.
+const REGULAR_GATE_COUNT = Math.max(
+  2,
+  Math.round(BUILDING_DWELL_SEC / GATE_INTERVAL_SEC) + 1,
+);
 // 게이트 주변 생성 금지 범위 — 약 1초 이동 거리. 건물 기준 제한은 없앴고, 이제
 // 게이트(문)만 이 범위로 행인 생성을 막는다. T/C 등 다른 이벤트도 같은 값을
 // 따로 두고 addSpawnBlock으로 등록하면 동일한 방식으로 확장된다.
@@ -520,16 +539,20 @@ export function createWorld(container) {
     segments,
     totalLength,
   );
+  // 건물 게이트 — 정답 문을 여기서 한 번만 뽑는다. 안내·판정 둘 다 이 배열을 본다
+  // (update()에서 직접 안내를 띄우고 틀리면 되돌린다 — 회전/신호등처럼 통과 여부가
+  // 있는 이벤트라 nextHint의 "한 번 보여주면 끝" 방식이 아니라 재판정이 필요하다).
+  const gateEvents = computeGateEvents(buildings, routeNames, segments);
 
-  // 회전 안내(turn)·게이트 문 안내(door)·이벤트 안내(공사/신호)를 거리(s) 순서
-  // 하나로 합친다 — 토스트 하나가 다 처리하니 순서만 맞으면 된다.
+  // 회전 안내(turn)·이벤트 안내(공사/신호)를 거리(s) 순서 하나로 합친다 — 토스트
+  // 하나가 다 처리하니 순서만 맞으면 된다. 게이트 안내는 여기 안 낀다 — 실패하면
+  // 되돌아가 같은 문을 다시 봐야 하므로 gateEvents가 자기 몫을 직접 띄운다.
   const hints = [
     ...computeTurnHints(waypoints, routeNames).map((h) => ({
       s: h.s,
       arrow: h.dir === "left" ? "←" : h.dir === "right" ? "→" : "↑",
       text: h.dir === "left" ? "왼쪽" : h.dir === "right" ? "오른쪽" : "직진",
     })),
-    ...computeDoorHints(buildings, routeNames, segments),
     ...navHints,
   ].sort((a, b) => a.s - b.s);
 
@@ -606,6 +629,36 @@ export function createWorld(container) {
     // (바리게이트에 막히면 s가 그 앞으로 고정된다).
     ({ x, z, s } = stepEventVisual(events, dt, prevS, x, z, heading, segments));
 
+    // 게이트 — 이 프레임에 진입선(ev.s)을 지났는데 정답 문(door)이 아니면 3초
+    // 뒤로 보낸다. resolved를 켜지 않으므로 큐(gateEvents)는 그대로 남고,
+    // announced만 다시 꺼서 되돌아간 자리에서 같은 안내가 다시 뜬다(요구사항 —
+    // 실패해도 이벤트를 소비하지 않고 큐 맨 앞을 유지한다).
+    if (!arrived && !trap.trapped) {
+      for (const ev of gateEvents) {
+        if (ev.resolved) continue;
+        if (!ev.announced && s + HINT_LOOKAHEAD >= ev.s) {
+          showToast(toast, DOOR_ARROW[ev.door], DOOR_NAME[ev.door]);
+          toastTimer = TOAST_DURATION;
+          ev.announced = true;
+        }
+        if (prevS < ev.s && s >= ev.s) {
+          const lane = nearestLane(lateralOffset(segments, x, z), GATE_DOOR_X);
+          if (lane === ev.door) {
+            ev.resolved = true;
+          } else {
+            s = Math.max(0, s - durationToDistance(WRONG_CHOICE_REWIND));
+            const p = pointAtArcLength(segments, s, 0);
+            x = p.x;
+            z = p.z;
+            heading = segHeadingAt(segments, s);
+            headingVel = 0;
+            pvx = 0;
+            ev.announced = false;
+          }
+        }
+      }
+    }
+
     // 행인 이동·빌보드·충돌. 감속 중이거나 갇힌 동안엔 재판정하지 않는다.
     if (stun > 0) stun = Math.max(0, stun - dt);
     const hit = stepPedestrians(
@@ -661,6 +714,12 @@ export function createWorld(container) {
       p.hit = false;
     }
     resetEvents(events);
+    // 문 번호(door)는 다시 뽑지 않는다 — T/C 차선과 같은 원칙(같은 판 안에서는
+    // 랜덤이 한 번뿐). 통과 여부만 되돌린다.
+    for (const ev of gateEvents) {
+      ev.resolved = false;
+      ev.announced = false;
+    }
     showToast(toast, "↑", "직진");
   }
 
@@ -975,11 +1034,11 @@ function lateralOffset(segments, x, z) {
   return lat;
 }
 
-function nearestLane(lat) {
+function nearestLane(lat, positions = LANE_X) {
   let best = 0,
     bd = Infinity;
-  for (let i = 0; i < LANE_X.length; i++) {
-    const d = Math.abs(lat - LANE_X[i]);
+  for (let i = 0; i < positions.length; i++) {
+    const d = Math.abs(lat - positions[i]);
     if (d < bd) {
       bd = d;
       best = i;
@@ -1374,27 +1433,28 @@ function buildBuildings(scene, routeNames, waypoints, pedRoads, spawnBlocks) {
       // 천장·벽은 세 갈래 전부를 덮어야 형태가 산다 → 세 갈래를 다 세운다.
       buildB7(scene, gateMat, labelMat, pedRoads, spawnBlocks);
     } else {
-      // 건물 안에 게이트를 평균 GATE_INTERVAL_SEC마다 하나씩. 통과 시간이 길수록
-      // 문이 늘어난다. 양 끝(진입·진출)을 포함해 고르게 배치한다.
-      const gateCount = Math.max(
-        2,
-        Math.round(BUILDING_DWELL_SEC / GATE_INTERVAL_SEC) + 1,
-      );
       // B7 이외는 도수 2라 이웃 둘과 함께 도로 하나로 합쳐져 있다(findPedRoad
       // 주석 참고) — id만으로 그 도로를 특정할 수 있다.
       const road = findPedRoad(pedRoads, b.id);
-      addGatesAlongChain(scene, gateMat, b.chain, gateCount, road, spawnBlocks);
+      addGatesAlongChain(
+        scene,
+        gateMat,
+        b.chain,
+        REGULAR_GATE_COUNT,
+        road,
+        spawnBlocks,
+      );
       addBuildingBox(scene, gateMat, labelMat, b.chain, b.dirs);
     }
   }
   return placements;
 }
 
-// 폴리라인 체인(진입→중심→진출)을 따라 게이트를 count개 고르게 세운다. 양 끝을
-// 포함하므로 count=2면 진입·진출만, 3이면 가운데에 하나 더 생긴다. 각 게이트의
-// 수직 방향은 그 지점이 놓인 선분의 수직이다(문은 얇아서 마이터가 필요 없다).
-// road가 주어지면 게이트 세계 좌표를 그 도로의 s로 바꿔 spawnBlocks에 등록한다.
-function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
+// 폴리라인 체인(진입→중심→진출)을 따라 게이트 count개의 좌표를 고르게 계산한다.
+// 양 끝을 포함하므로 count=2면 진입·진출만, 3이면 가운데에 하나 더 생긴다.
+// 렌더링(addGatesAlongChain)과 판정(computeGateEvents)이 같은 자리를 보도록
+// 이 함수 하나로 통일한다 — 따로 계산하면 둘이 조금씩 어긋날 수 있다.
+function computeChainGatePoints(chain, count) {
   const segLens = [];
   let total = 0;
   for (let i = 0; i < chain.length - 1; i++) {
@@ -1405,6 +1465,7 @@ function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
     segLens.push(l);
     total += l;
   }
+  const points = [];
   for (let k = 0; k < count; k++) {
     const target = (total * k) / (count - 1);
     let acc = 0,
@@ -1416,9 +1477,17 @@ function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
     const t = segLens[si] > 0 ? (target - acc) / segLens[si] : 0;
     const [x0, z0] = chain[si],
       [x1, z1] = chain[si + 1];
-    const perp = perpVec(Math.atan2(z1 - z0, x1 - x0));
-    const gx = x0 + (x1 - x0) * t,
-      gz = z0 + (z1 - z0) * t;
+    points.push([x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]);
+  }
+  return points;
+}
+
+// 각 게이트의 수직 방향은 그 지점이 놓인 선분의 수직이다(문은 얇아서 마이터가
+// 필요 없다). road가 주어지면 게이트 세계 좌표를 그 도로의 s로 바꿔
+// spawnBlocks에 등록한다.
+function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
+  for (const [gx, gz] of computeChainGatePoints(chain, count)) {
+    const perp = perpVec(nearestChainHeading(chain, gx, gz));
     addGate(scene, mat, [gx, gz], perp);
     if (road)
       addSpawnBlock(
@@ -1428,6 +1497,30 @@ function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
         GATE_CLEAR,
       );
   }
+}
+
+// 체인 위의 한 점(computeChainGatePoints가 준 점) 근처 선분의 진행 방향을 다시
+// 구한다 — addGate의 perp(문 방향)를 위해서만 쓴다. 체인이 짧아(2~3점) 선형
+// 탐색으로 충분하다.
+function nearestChainHeading(chain, x, z) {
+  let best = Infinity,
+    heading = 0;
+  for (let i = 0; i < chain.length - 1; i++) {
+    const [x0, z0] = chain[i],
+      [x1, z1] = chain[i + 1];
+    const dx = x1 - x0,
+      dz = z1 - z0;
+    const l2 = dx * dx + dz * dz;
+    const t = l2 > 0 ? clamp(((x - x0) * dx + (z - z0) * dz) / l2, 0, 1) : 0;
+    const cx = x0 + dx * t,
+      cz = z0 + dz * t;
+    const d = Math.hypot(x - cx, z - cz);
+    if (d < best) {
+      best = d;
+      heading = Math.atan2(dz, dx);
+    }
+  }
+  return heading;
 }
 
 // B7 전용 — 세 갈래(T4/J3/C3)를 각각 center에서 tip까지 독립된 통로로 세운다.
@@ -1453,9 +1546,13 @@ function buildB7(scene, wallMat, labelMat, pedRoads, spawnBlocks) {
     // B7은 도수 3이라 세 방향이 서로 다른 도로에 남는다 — id(B7)만으론 못
     // 좁히므로 방향(nb)까지 같이 넘겨 findPedRoad가 정확한 갈래를 찾게 한다.
     const road = findPedRoad(pedRoads, "B7", nb);
-    for (let d = half; d >= centerClear; d -= gateStep) {
-      const gx = center[0] + dir.x * d,
-        gz = center[1] + dir.z * d;
+    for (const [gx, gz] of computeArmGatePoints(
+      center,
+      dir,
+      half,
+      gateStep,
+      centerClear,
+    )) {
       addGate(scene, wallMat, [gx, gz], perp);
       if (road)
         addSpawnBlock(
@@ -1467,6 +1564,36 @@ function buildB7(scene, wallMat, labelMat, pedRoads, spawnBlocks) {
     }
     addEndWall(scene, labelMat, tip, perp, CEIL, CEIL + BUILDING_H);
   }
+}
+
+// center에서 dir 방향으로 half까지, centerClear 안쪽은 비우고 gateStep마다
+// 게이트 좌표를 계산한다. buildB7의 세 갈래 렌더링과 computeB7GateEvents(판정)가
+// 같은 자리를 보도록 이 함수 하나로 통일한다.
+function computeArmGatePoints(center, dir, half, gateStep, centerClear) {
+  const points = [];
+  for (let d = half; d >= centerClear; d -= gateStep) {
+    points.push([center[0] + dir.x * d, center[1] + dir.z * d]);
+  }
+  return points;
+}
+
+// B7 전용 게이트 판정 좌표 — 실제로 걷는 두 갈래(진입 쪽·진출 쪽)만. 세 번째
+// (안 쓰는) 갈래는 장식이라 판정 대상이 아니다. b.entry/b.exit는 buildingPlacement가
+// center에서 half만큼 나간 지점으로 이미 계산해 뒀다(각 갈래의 tip과 같은 자리) —
+// 그 방향을 다시 구해 buildB7과 같은 반경(half~centerClear)으로 게이트를 나열한다.
+function computeB7GatePoints(b) {
+  const center = pt("B7");
+  const half = durationToDistance(BUILDING_DWELL_SEC) / 2;
+  const gateStep = durationToDistance(GATE_INTERVAL_SEC);
+  const centerClear = ROAD_HALF * 1.6;
+  const points = [];
+  for (const tip of [b.entry, b.exit]) {
+    const h = Math.atan2(tip[1] - center[1], tip[0] - center[0]);
+    points.push(
+      ...computeArmGatePoints(center, dirVec(h), half, gateStep, centerClear),
+    );
+  }
+  return points;
 }
 
 // 한 갈래(직선)의 양옆 벽 + 천장. from(center)에서 to(tip)까지, perp는 진행
@@ -1690,20 +1817,35 @@ function goalBannerTexture() {
   return new THREE.CanvasTexture(cnv);
 }
 
-// 지금 고른 경로에 실제로 있는 건물만 안내한다 — 회전 안내와 같은 원리로,
-// 안 지나갈 건물까지 안내하면 의미가 없다. 어느 문이 정답인지는 매번 무작위.
-function computeDoorHints(placements, routeNames, segments) {
-  const hints = [];
+// 지금 고른 경로에 실제로 있는 건물만 판정한다 — 회전 안내와 같은 원리로,
+// 안 지나갈 건물까지 안내하면 의미가 없다. 어느 문이 정답인지는 게이트마다
+// 게임 시작 시 딱 한 번 뽑고(door), 다시 시작해도 다시 뽑지 않는다(reset()에서
+// 유지) — T/C 이벤트의 랜덤과 같은 원칙. 건물 안 게이트마다 독립적으로 뽑으므로
+// 같은 건물이라도 진입·중간·진출 문이 서로 다를 수 있다(요구사항).
+//
+// 판정 지점은 진입 게이트 하나가 아니라 그 건물에 실제로 서 있는 게이트
+// 전부다(진입·중간·진출) — addGatesAlongChain/buildB7이 렌더링에 쓰는 것과
+// 같은 좌표 계산(computeChainGatePoints/computeB7GatePoints)을 그대로 써서,
+// 화면에 보이는 문과 판정 지점이 어긋나지 않는다.
+function computeGateEvents(placements, routeNames, segments) {
+  const events = [];
   for (const b of placements) {
     if (!routeNames.includes(b.id)) continue;
-    const door = Math.floor(Math.random() * 3);
-    hints.push({
-      s: nearestArcLength(segments, b.entry[0], b.entry[1]),
-      arrow: DOOR_ARROW[door],
-      text: DOOR_NAME[door],
-    });
+    const points =
+      b.id === "B7"
+        ? computeB7GatePoints(b)
+        : computeChainGatePoints(b.chain, REGULAR_GATE_COUNT);
+    for (const [gx, gz] of points) {
+      events.push({
+        id: b.id,
+        s: nearestArcLength(segments, gx, gz),
+        door: Math.floor(Math.random() * 3),
+        resolved: false, // 맞는 문으로 통과하면 true — 그 뒤로는 다시 판정 안 함
+        announced: false, // 안내를 이미 띄웠으면 true — 되돌아가면 다시 false로
+      });
+    }
   }
-  return hints;
+  return events.sort((a, b) => a.s - b.s);
 }
 
 // ── 도로 지오메트리 — 선택된 경로든 아니든 도로망(ROADS) 전부를 똑같은
