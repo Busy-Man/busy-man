@@ -32,11 +32,11 @@
 + 바리게이트 시작점에서 올라는 걸로 수정
 + 바리게이트 유저 접근 2초 -> 1초 전으로 수정
 + 신호등 행인 배치 세로 일자X -> 시작점에 가로로 2줄로 수정
-- 루트셋 확장 검토
++ 루트셋 확장 검토
 - 가속 기능 추가(가속키: w)
 - 방향, 신호등, 공사장 이벤트 호출
 - 잘못된 길 진입 시 뒤로 보내기
-- 루트별 시간 계산
++ 루트별 시간 계산
 **/
 
 import * as THREE from "../vendor/three.module.js";
@@ -249,6 +249,18 @@ const ROADS = [
   ["B8", "END3"],
   ["J3", "T5", "END2"],
 ];
+
+// 노드별 차수 — 이 노드에서 갈라지는 서로 다른 도로(ROADS 항목) 수. 3 이상이면
+// 실제 갈림길이다(유저가 화면에서 다른 길도 볼 수 있는 지점). T/C 표지는 도로
+// 중간의 마커일 뿐 ROADS 항목의 끝점이 아니라서 여기 안 잡힌다 — 마커에는
+// 실제로 고를 다른 길이 없으니 그게 맞다.
+const NODE_DEGREE = {};
+for (const road of ROADS) {
+  const a = road[0],
+    b = road[road.length - 1];
+  NODE_DEGREE[a] = (NODE_DEGREE[a] || 0) + 1;
+  NODE_DEGREE[b] = (NODE_DEGREE[b] || 0) + 1;
+}
 
 // docs/map/맵 시간 배분.md §4-1의 유효 경로 9개(60~81초 밴드)를, 위 노드 이름을
 // 잇는 "홉" 목록으로 그대로 옮겼다. 각 홉은 이전 홉의 끝점에서 이어진다(반대로
@@ -512,10 +524,10 @@ export function createWorld(container) {
   // 회전 안내(turn)·게이트 문 안내(door)·이벤트 안내(공사/신호)를 거리(s) 순서
   // 하나로 합친다 — 토스트 하나가 다 처리하니 순서만 맞으면 된다.
   const hints = [
-    ...computeTurnHints(waypoints).map((h) => ({
+    ...computeTurnHints(waypoints, routeNames).map((h) => ({
       s: h.s,
-      arrow: h.dir === "left" ? "←" : "→",
-      text: h.dir === "left" ? "왼쪽" : "오른쪽",
+      arrow: h.dir === "left" ? "←" : h.dir === "right" ? "→" : "↑",
+      text: h.dir === "left" ? "왼쪽" : h.dir === "right" ? "오른쪽" : "직진",
     })),
     ...computeDoorHints(buildings, routeNames, segments),
     ...navHints,
@@ -1279,7 +1291,7 @@ function resetEvents(events) {
   }
 }
 
-function computeTurnHints(waypoints) {
+function computeTurnHints(waypoints, names) {
   const hints = [];
   let acc = 0;
   for (let i = 1; i < waypoints.length - 1; i++) {
@@ -1292,7 +1304,14 @@ function computeTurnHints(waypoints) {
     let diff = h1 - h0;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    if (Math.abs(diff) < 0.2) continue; // 거의 직진이면 갈림길로 안 친다
+    if (Math.abs(diff) < 0.2) {
+      // 거의 직진이면 방향은 안 꺾인다 — 다만 여기가 실제 갈림길(차수 3 이상)
+      // 이면 유저는 화면에서 다른 길도 보고 있으므로, 직진도 안내해야 헷갈리지
+      // 않는다(요구사항). 차수 2 이하(T/C 표지·건물 통과 등 갈림길이 아닌 지점)는
+      // 계속 건너뛴다.
+      if (NODE_DEGREE[names[i]] >= 3) hints.push({ s: acc, dir: "straight" });
+      continue;
+    }
     hints.push({ s: acc, dir: diff > 0 ? "right" : "left" });
   }
   return hints;
