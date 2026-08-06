@@ -31,10 +31,12 @@
 - B7 건물 안 그래픽 버그 수정
 + 바리게이트 시작점에서 올라는 걸로 수정
 + 바리게이트 유저 접근 2초 -> 1초 전으로 수정
-- 신호등 행인 배치 세로 일자X -> 시작점에 가로로 2줄로 수정
++ 신호등 행인 배치 세로 일자X -> 시작점에 가로로 2줄로 수정
 - 루트셋 확장 검토
 - 가속 기능 추가(가속키: w)
 - 방향, 신호등, 공사장 이벤트 호출
+- 잘못된 길 진입 시 뒤로 보내기
+- 루트별 시간 계산
 **/
 
 import * as THREE from "../vendor/three.module.js";
@@ -124,7 +126,7 @@ const COLOR = {
   crosswalk1: 0x22262b, // 신호등 바닥 횡단보도 — 진한 회색/검정
   crosswalk2: 0xf2f4f7, // 횡단보도 흰 줄
   barricade: 0xf2a154, // 공사장 바리게이트 — 주황
-  barricade2: 0x2b2f36, // 바리게이트 경고 줄무늬 — 검정
+  barricade2: 0xffffff, // 바리게이트 경고 줄무늬 — 검정
 };
 
 // ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
@@ -164,9 +166,15 @@ const BARR_STOP = 0.9; // 막힐 때 바리게이트 이만큼 앞에서 멈춘�
 // ── 신호등(T) ──
 const TL_HALF_SEC = 2; // 구역 반깊이(초) → 정상 통과 약 4초(2×half/ SPEED)
 const TL_TRAP_SEC = 6; // 안전 차선을 못 타면 약 6초 갇혀 천천히 끌려간다
-const TL_OPEN_LEAD_SEC = 1; // 충돌 약 0.5초 전 안전 차선이 열린다
+const TL_OPEN_LEAD_SEC = 0.3; // 충돌 약 0.5초 전 안전 차선이 열린다
+const TL_JUDGE_DELAY_SEC = 0.75; // 진입선(startS)에서 이만큼 더 간 뒤에야 차선을 판정한다 —
+// 요구사항: 들어가자마자 정해지는 느낌을 줄이려는 것. 군중이 갈라지는 연출
+// 시점(TL_OPEN_LEAD_SEC)은 그대로 startS 기준이라 이 값의 영향을 받지 않는다.
 const TL_CROWD_GAP = 1.6; // 군중 앞뒤 간격(줄 간격)
 const TL_STEP = 5.5; // 군중이 옆 차선으로 비켜서는 속도(유닛/초)
+const TL_CROWD_PER_SLOT = 3; // 줄×차선 한 자리에 세울 인원 — 요구사항: 더 많아 보이게, 겹쳐도 무방
+const TL_CROWD_JITTER_S = 0.5; // 한 자리 안에서 앞뒤로 흩어지는 폭(겹침 허용)
+const TL_CROWD_JITTER_LAT = 0.5; // 한 자리 안에서 좌우로 흩어지는 폭
 
 // ── docs/aaa.jpg의 노드 좌표(원본) — 그래프 구조는 그대로 둔다(나중에 건물/신호등/
 // 공사장을 되살릴 때 다시 쓴다). 이번 버전은 이 중 일부만 잇는다. 실제 좌표(N)는
@@ -505,6 +513,20 @@ export function createWorld(container) {
     const prevS = s;
     const lane0 = nearestLane(lateralOffset(segments, x, z));
     const trap = stepEventControl(events, prevS, lane0);
+    // 갇힘 시작·종료 경계에서만 안내 문구를 띄우고 지운다(요구사항) — sticky라
+    // 일반 토스트(toastTimer)가 알아서 지우지 않으니 여기서 직접 뗀다.
+    if (trap.trapStarted) {
+      // 회전 입력으로 미세하게 틀어져 있던 시야를 즉시 정면(그 지점 길의 방향)
+      // 으로 바로잡는다(요구사항) — 이후 회전 입력도 막히니 갇힌 동안 계속
+      // 정면을 본다.
+      heading = segHeadingAt(segments, prevS);
+      headingVel = 0;
+      showToast(toast, "⚠", "잘못된 길: 가속 및 방향 조작이 제한됩니다.", true);
+    }
+    if (trap.trapEnded) {
+      toast.dataset.sticky = "";
+      hideToast(toast);
+    }
 
     const turnLeft = !trap.trapped && !!(input && input.turnLeft),
       turnRight = !trap.trapped && !!(input && input.turnRight);
@@ -560,6 +582,7 @@ export function createWorld(container) {
 
     if (
       !arrived &&
+      !trap.trapped &&
       nextHint < hints.length &&
       s + HINT_LOOKAHEAD >= hints[nextHint].s
     ) {
@@ -967,11 +990,13 @@ function createEvents(scene, routeNames, segments, totalLength) {
       const half = durationToDistance(TL_HALF_SEC);
       const startS = centerS - half,
         endS = centerS + half;
+      // 군중은 갇힘 판정 구간(startS)이 아니라 실제로 색칠되는 노란 구역
+      // 경계에 세운다(요구사항) — expandZones와 같은 폭(ZONE_SEC)을 쓴다.
+      const zoneStartS = centerS - durationToDistance(ZONE_SEC) / 2;
       const crowd = buildCrowd(
         scene,
         segments,
-        startS,
-        endS,
+        zoneStartS,
         bodyGeo,
         headGeo,
         bodyMat,
@@ -1041,59 +1066,88 @@ function buildBarricadeMesh(segments, barrS, lane, mat) {
   return mesh;
 }
 
-// 신호등 군중 — 구역(startS~endS)을 세 차선 모두 촘촘히 채운다. 각 행인은 home
-// 차선을 기억하고, 안전 차선이 열리면 그 차선 행인만 옆으로 비켜선다.
+// 신호등 군중 — 노란 벽(시각 구역, zoneStartS)을 기준으로 가로 2줄(줄마다 세
+// 차선 모두)로 세운다. zoneStartS는 게임 로직상의 갇힘 구간(startS)이 아니라
+// 실제로 색칠된 구역의 경계다 — 로직 구간(TL_HALF_SEC 기준)이 시각 구역
+// (ZONE_SEC 기준)보다 넓어서, 로직 startS를 그대로 쓰면 군중이 일반 도로(S) 위로
+// 튀어나와 있었다(버그 리포트). 마지막 줄(플레이어가 먼저 만나는, 문지기 역할)을
+// 노란 벽 바로 앞(zoneStartS)에 세우고, 나머지 한 줄은 그만큼 벽 안쪽
+// (zoneStartS + GAP)으로 넣는다(요구사항) — 둘 다 노란 구역 안에 머문다. 자리
+// 하나(줄×차선)에 TL_CROWD_PER_SLOT명을 겹쳐도 되게 살짝 흩어(지터) 세워 사람이
+// 더 많아 보이게 한다(요구사항). 각 행인은 home 위치를 기억하고(재시작 시
+// 되돌아갈 자리), 안전 차선이 열리면 그 차선 행인만 나머지 두 차선으로 흩어져
+// 비켜선다.
 function buildCrowd(
   scene,
   segments,
-  startS,
-  endS,
+  zoneStartS,
   bodyGeo,
   headGeo,
   bodyMat,
   headMat,
 ) {
   const crowd = [];
-  for (let cs = startS; cs <= endS; cs += TL_CROWD_GAP) {
+  for (let row = 0; row < 2; row++) {
+    const cs = zoneStartS + (1 - row) * TL_CROWD_GAP; // row0(안쪽)=+GAP, row1(마지막,벽 앞)=zoneStartS
     for (let lane = 0; lane < 3; lane++) {
-      const body = new THREE.Mesh(bodyGeo, bodyMat);
-      const head = new THREE.Mesh(headGeo, headMat);
-      scene.add(body);
-      scene.add(head);
-      crowd.push({
-        s: cs,
-        lane,
-        homeOff: LANE_X[lane],
-        off: LANE_X[lane],
-        targetOff: LANE_X[lane],
-        sway: Math.random() * Math.PI * 2,
-        body,
-        head,
-      });
+      for (let n = 0; n < TL_CROWD_PER_SLOT; n++) {
+        const s0 = cs + (Math.random() * 2 - 1) * TL_CROWD_JITTER_S;
+        const off0 =
+          LANE_X[lane] + (Math.random() * 2 - 1) * TL_CROWD_JITTER_LAT;
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const head = new THREE.Mesh(headGeo, headMat);
+        scene.add(body);
+        scene.add(head);
+        crowd.push({
+          s: s0,
+          s0,
+          lane,
+          homeOff: off0,
+          off: off0,
+          targetOff: off0,
+          sway: Math.random() * Math.PI * 2,
+          body,
+          head,
+        });
+      }
     }
   }
   return crowd;
 }
 
 // 이벤트 상태 갱신 중 "조작 제약"만 먼저 판단한다(이동 계산 전에 호출). 신호등
-// 구역에 안전 차선이 아닌 채로 진입하면 갇힌다(phase=active, trap=true). 갇힘이
-// 결정되면 구역이 끝날 때까지 유지된다. 반환: { trapped, trapSpeed }.
+// 구역에 들어선 뒤(startS + TL_JUDGE_DELAY_SEC 이동 거리) 안전 차선이 아니면
+// 갇힌다(phase=active, trap=true) — 진입선에서 바로 판정하면 "들어가자마자
+// 정해진다"는 느낌이 들어 그만큼 더 들어간 지점의 차선으로 판정한다(요구사항).
+// 갇힘이 결정되면 구역이 끝날 때까지 유지된다. trapStarted/trapEnded는 갇힘이
+// 이번 프레임에 막 시작·종료됐는지 알려준다 — 호출부(update)가 이 경계에서만
+// 안내 문구를 띄우고 지우면 되게 하려는 것(매 프레임 다시 그릴 필요 없음).
+// 반환: { trapped, trapSpeed, trapStarted, trapEnded }.
 function stepEventControl(events, s, lane) {
   let trapped = false,
-    trapSpeed = SPEED;
+    trapSpeed = SPEED,
+    trapStarted = false,
+    trapEnded = false;
   for (const ev of events) {
     if (ev.type !== "T") continue;
-    if (ev.phase === "pending" && s >= ev.startS) {
+    if (
+      ev.phase === "pending" &&
+      s >= ev.startS + durationToDistance(TL_JUDGE_DELAY_SEC)
+    ) {
       ev.phase = "active";
-      ev.trap = lane !== ev.safeLane; // 진입 순간 차선으로 통과/갇힘 확정
+      ev.trap = lane !== ev.safeLane; // 판정 지점 차선으로 통과/갇힘 확정
+      if (ev.trap) trapStarted = true;
     }
-    if (ev.phase === "active" && s >= ev.endS) ev.phase = "done";
+    if (ev.phase === "active" && s >= ev.endS) {
+      ev.phase = "done";
+      if (ev.trap) trapEnded = true;
+    }
     if (ev.phase === "active" && ev.trap) {
       trapped = true;
       trapSpeed = ev.trapSpeed;
     }
   }
-  return { trapped, trapSpeed };
+  return { trapped, trapSpeed, trapStarted, trapEnded };
 }
 
 // 이동을 마친 뒤: 바리게이트를 올리고(플레이어가 가까워지면), 막힌 차선이면 전진을
@@ -1128,24 +1182,29 @@ function stepEventVisual(events, dt, prevS, x, z, heading, segments) {
         z = p.z;
       }
     } else {
-      // 신호등: 충돌 약 0.5초 전 안전 차선을 연다(그 차선 행인들이 옆으로 비켜선다).
+      // 신호등: 판정이 끝난 뒤(phase active)엔 이번 프레임에 플레이어가 실제로
+      // 전진한 만큼(s - prevS) 군중도 같이 전진시킨다. 갇혔을 때는 사람들 사이에
+      // 끼여 함께 떠밀려 가는 느낌을(요구사항), 올바른 차선으로 통과할 때는 안전
+      // 차선을 비운 옆 차선 사람들이 플레이어와 나란히 직진하는 느낌을 준다
+      // (요구사항) — 어느 쪽이든 판정된 뒤에는 군중이 제자리에 머물지 않는다.
+      if (ev.phase === "active") {
+        const advance = s - prevS;
+        for (const c of ev.crowd) c.s += advance;
+      }
+      // 충돌 약 0.5초 전 안전 차선을 연다(그 차선 행인들이 옆으로 비켜선다).
       if (
         !ev.opened &&
         prevS >= ev.startS - durationToDistance(TL_OPEN_LEAD_SEC)
       ) {
         ev.opened = true;
+        // 안내 차선만 비우고 그 자리에 있던 사람들은 나머지 두 차선으로 나눠
+        // 흩어진다(요구사항) — 한쪽 차선에만 몰아넣지 않는다.
+        const others = [0, 1, 2].filter((l) => l !== ev.safeLane);
+        let i = 0;
         for (const c of ev.crowd) {
           if (c.lane === ev.safeLane) {
-            // 가까운(또는 반대편) 다른 차선으로 목표를 옮긴다
-            const other =
-              ev.safeLane === 0
-                ? 1
-                : ev.safeLane === 2
-                  ? 1
-                  : c.s % 2 < 1
-                    ? 0
-                    : 2;
-            c.targetOff = LANE_X[other];
+            c.targetOff = LANE_X[others[i % others.length]];
+            i++;
           }
         }
       }
@@ -1182,6 +1241,7 @@ function resetEvents(events) {
       ev.phase = "pending";
       ev.trap = false;
       for (const c of ev.crowd) {
+        c.s = c.s0; // 갇힌 동안 함께 전진했던 것도 되돌린다
         c.off = c.homeOff;
         c.targetOff = c.homeOff;
       }
