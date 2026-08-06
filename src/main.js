@@ -12,6 +12,7 @@ import { state } from "./state.js";
 
 const stage = document.getElementById("stage");
 
+
 const content = await fetch("./content/day1.json").then((r) => r.json());
 const phone = mountPhone(document.body, { content, state });
 const quiz = mountQuiz(document.body, { content, state });
