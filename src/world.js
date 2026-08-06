@@ -84,6 +84,10 @@ const BUILDING_DWELL_SEC = 5.5;
 // 길수록 문 개수도 자연히 늘어난다(개수 = 통과시간 / 이 값, 반올림). 길이는
 // durationToDistance로 나오므로 초만 정하면 위치가 따라온다.
 const GATE_INTERVAL_SEC = 3;
+// 게이트 주변 생성 금지 범위 — 약 1초 이동 거리. 건물 기준 제한은 없앴고, 이제
+// 게이트(문)만 이 범위로 행인 생성을 막는다. T/C 등 다른 이벤트도 같은 값을
+// 따로 두고 addSpawnBlock으로 등록하면 동일한 방식으로 확장된다.
+const GATE_CLEAR = durationToDistance(1);
 
 // 신호등(T)·공사장(C) 구간의 색칠 길이(초). 아직 이벤트(정지·서행)는 없고 일반
 // 도로처럼 지나가되, 노드를 중심으로 이만큼의 길이만 다른 색으로 칠해 "여기가 T/C
@@ -138,7 +142,6 @@ const PED_SPEED_VAR = 0.9; // 속도 편차 — prototype
 const PED_GAP_MIN = 3.5; // 앞뒤 간격 하한 — prototype
 const PED_GAP_VAR = 3.0; // 간격 편차 — prototype
 const PED_START_S = 10; // 시작점 바로 앞은 비워 둔다
-const PED_CLEAR_BUILDING = 2; // 건물(게이트) 안쪽엔 행인을 두지 않는다
 const HIT_DEPTH = 0.6; // 충돌 판정 앞뒤 반깊이 — prototype의 dz 창(±0.6)
 const HIT_HALF = 0.62; // 충돌 판정 좌우 반폭 — prototype의 좌우 임계값
 const HIT_STUN = 0.55; // 부딪힌 뒤 감속 지속 — prototype
@@ -446,8 +449,19 @@ export function createWorld(container) {
   const totalLength = segments.reduce((a, s) => a + s.len, 0);
 
   buildCityRoads(scene);
-  const buildings = buildBuildings(scene, routeNames, waypoints);
-  const peds = createPedestrians(scene);
+  // 행인 생성 금지 구간(현재는 게이트뿐)은 도로(pedRoads) 위의 s로 등록한다 —
+  // 건물·게이트가 pedRoads/spawnBlocks를 공유해야 같은 도로 객체로 매칭되므로
+  // 여기서 한 번만 만들어 두 함수에 그대로 넘긴다.
+  const pedRoads = buildPedRoads();
+  const spawnBlocks = [];
+  const buildings = buildBuildings(
+    scene,
+    routeNames,
+    waypoints,
+    pedRoads,
+    spawnBlocks,
+  );
+  const peds = createPedestrians(scene, pedRoads, spawnBlocks);
   buildGoalMarker(scene, waypoints);
   // 공사장(C)·신호등(T) 이벤트 — 바리게이트/안전 차선을 여기서 한 번만 정한다.
   const { events, navHints } = createEvents(
@@ -680,6 +694,42 @@ function nearestArcLength(segments, x, z) {
   return bestS;
 }
 
+// ── s(진행 거리) 기반 생성 금지 구간 ──────────────────
+// 행인은 도로망(ROADS) 전체에 흩어 세우므로(createPedestrians), "이 지점 근처엔
+// 두지 않는다"를 세계 좌표(x, z) 거리가 아니라 그 행인이 걷는 도로 위에서의 s로
+// 판정한다 — 같은 도로가 아니면 애초에 비교 대상이 아니다. 도로 식별은
+// mergeStraightRoads가 만든 이름 체인(pedRoads)을 그대로 객체 참조로 쓴다(문자열
+// 키를 만들 필요가 없다 — 생성 쪽과 소비 쪽이 항상 같은 pedRoads 배열을 공유한다).
+//
+// 게이트가 첫 사용처지만 구간 등록 자체는 게이트를 모른다 — 신호등(T)·공사장(C)
+// 이벤트도 자기 s와 반경만 정해서 addSpawnBlock을 호출하면 동일한 방식으로 생성
+// 금지 구간이 는다.
+function buildPedRoads() {
+  return mergeStraightRoads(ROADS).map((names) => ({
+    names,
+    segs: toSegments(names.map(pt)),
+  }));
+}
+
+// 이름(들)이 함께 들어 있는 합쳐진 도로를 찾는다. 건물은 대부분 도수 2라 이웃
+// 둘과 함께 도로 하나로 합쳐지므로 id만으로 찾을 수 있다. B7은 도수 3이라 세
+// 방향이 서로 다른 도로에 남으므로, 어느 방향(nb)인지까지 같이 봐야 한다.
+function findPedRoad(pedRoads, id, nb) {
+  return pedRoads.find(
+    (r) => r.names.includes(id) && (!nb || r.names.includes(nb)),
+  );
+}
+
+function addSpawnBlock(spawnBlocks, road, s, clear) {
+  if (road) spawnBlocks.push({ road, s, clear });
+}
+
+function isSpawnBlocked(spawnBlocks, road, s) {
+  return spawnBlocks.some(
+    (b) => b.road === road && Math.abs(s - b.s) < b.clear,
+  );
+}
+
 // 경로 진행거리 s와 좌우 오프셋 off로 월드 좌표를 구한다 — 행인을 "길 위 어디쯤,
 // 중앙선에서 얼마만큼 옆"으로 배치·이동시키는 데 쓴다. 길이 꺾여도 s만 따라가면
 // 알아서 굽은 복도를 탄다. cx/cz는 중앙선 위 점(충돌 판정 등에 쓸 수 있게 같이 준다).
@@ -731,10 +781,12 @@ function pedBillboardGeometry(halfW, y0, y1) {
 }
 
 // 맵 전체 도로망에 행인을 흩어 세운다 — 플레이어가 걷는 경로뿐 아니라 다른 길에도.
-// 각 논리 도로(mergeStraightRoads)를 자기 진행거리로 따라가며 같은 간격(prototype
-// 상수)으로 배치하므로, 어디를 봐도 밀도가 같고 특정 구간에 몰리지 않는다. 몸통·머리
-// 지오메트리와 재질은 하나씩만 만들어 공유한다. 건물 안과 출발 지점 바로 앞은 비운다.
-function createPedestrians(scene) {
+// 각 논리 도로(pedRoads, mergeStraightRoads 결과)를 자기 진행거리로 따라가며 같은
+// 간격(prototype 상수)으로 배치하므로, 어디를 봐도 밀도가 같고 특정 구간에 몰리지
+// 않는다. 몸통·머리 지오메트리와 재질은 하나씩만 만들어 공유한다. 건물 기준 생성
+// 제한은 없다(건물 내부 포함 자유 배치) — 게이트(spawnBlocks) 근처와 출발 지점
+// 바로 앞만 비운다.
+function createPedestrians(scene, pedRoads, spawnBlocks) {
   const bodyGeo = pedBillboardGeometry(PED_HALF, 0, PED_BODY_H);
   const headGeo = pedBillboardGeometry(PED_HEAD_HALF, PED_BODY_H, PED_HEAD_TOP);
   const bodyMat = new THREE.MeshBasicMaterial({
@@ -746,14 +798,11 @@ function createPedestrians(scene) {
     side: THREE.DoubleSide,
   });
 
-  const buildingCenters = Object.keys(BUILDING_SEC).map(pt);
-  const buildingClear =
-    durationToDistance(BUILDING_DWELL_SEC) / 2 + PED_CLEAR_BUILDING;
   const startPt = pt("START");
 
   const peds = [];
-  for (const road of mergeStraightRoads(ROADS)) {
-    const segs = toSegments(road.map(pt));
+  for (const road of pedRoads) {
+    const { segs } = road;
     const len = segs.reduce((a, sg) => a + sg.len, 0);
     if (len < PED_GAP_MIN) continue;
     for (
@@ -761,14 +810,9 @@ function createPedestrians(scene) {
       s < len - 1;
       s += PED_GAP_MIN + Math.random() * PED_GAP_VAR
     ) {
+      if (isSpawnBlocked(spawnBlocks, road, s)) continue;
       const off = (Math.random() * 2 - 1) * PED_LANE_HALF;
       const c = pointAtArcLength(segs, s, off);
-      if (
-        buildingCenters.some(
-          (b) => Math.hypot(c.x - b[0], c.z - b[1]) < buildingClear,
-        )
-      )
-        continue;
       if (Math.hypot(c.x - startPt[0], c.z - startPt[1]) < PED_START_S)
         continue;
       const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -1205,7 +1249,7 @@ function computeBuildings(routeNames, waypoints) {
   return placements;
 }
 
-function buildBuildings(scene, routeNames, waypoints) {
+function buildBuildings(scene, routeNames, waypoints, pedRoads, spawnBlocks) {
   const gateMat = new THREE.MeshBasicMaterial({
     color: COLOR.gate,
     side: THREE.DoubleSide,
@@ -1219,7 +1263,7 @@ function buildBuildings(scene, routeNames, waypoints) {
     if (b.id === "B7") {
       // B7은 T4·J3·C3 세 방향으로 뻗은 'ㅗ'(T자) 건물이다. 두 갈래만 지나가도
       // 천장·벽은 세 갈래 전부를 덮어야 형태가 산다 → 세 갈래를 다 세운다.
-      buildB7(scene, gateMat, labelMat);
+      buildB7(scene, gateMat, labelMat, pedRoads, spawnBlocks);
     } else {
       // 건물 안에 게이트를 평균 GATE_INTERVAL_SEC마다 하나씩. 통과 시간이 길수록
       // 문이 늘어난다. 양 끝(진입·진출)을 포함해 고르게 배치한다.
@@ -1227,7 +1271,10 @@ function buildBuildings(scene, routeNames, waypoints) {
         2,
         Math.round(BUILDING_DWELL_SEC / GATE_INTERVAL_SEC) + 1,
       );
-      addGatesAlongChain(scene, gateMat, b.chain, gateCount);
+      // B7 이외는 도수 2라 이웃 둘과 함께 도로 하나로 합쳐져 있다(findPedRoad
+      // 주석 참고) — id만으로 그 도로를 특정할 수 있다.
+      const road = findPedRoad(pedRoads, b.id);
+      addGatesAlongChain(scene, gateMat, b.chain, gateCount, road, spawnBlocks);
       addBuildingBox(scene, gateMat, labelMat, b.chain, b.dirs);
     }
   }
@@ -1237,7 +1284,8 @@ function buildBuildings(scene, routeNames, waypoints) {
 // 폴리라인 체인(진입→중심→진출)을 따라 게이트를 count개 고르게 세운다. 양 끝을
 // 포함하므로 count=2면 진입·진출만, 3이면 가운데에 하나 더 생긴다. 각 게이트의
 // 수직 방향은 그 지점이 놓인 선분의 수직이다(문은 얇아서 마이터가 필요 없다).
-function addGatesAlongChain(scene, mat, chain, count) {
+// road가 주어지면 게이트 세계 좌표를 그 도로의 s로 바꿔 spawnBlocks에 등록한다.
+function addGatesAlongChain(scene, mat, chain, count, road, spawnBlocks) {
   const segLens = [];
   let total = 0;
   for (let i = 0; i < chain.length - 1; i++) {
@@ -1260,7 +1308,16 @@ function addGatesAlongChain(scene, mat, chain, count) {
     const [x0, z0] = chain[si],
       [x1, z1] = chain[si + 1];
     const perp = perpVec(Math.atan2(z1 - z0, x1 - x0));
-    addGate(scene, mat, [x0 + (x1 - x0) * t, z0 + (z1 - z0) * t], perp);
+    const gx = x0 + (x1 - x0) * t,
+      gz = z0 + (z1 - z0) * t;
+    addGate(scene, mat, [gx, gz], perp);
+    if (road)
+      addSpawnBlock(
+        spawnBlocks,
+        road,
+        nearestArcLength(road.segs, gx, gz),
+        GATE_CLEAR,
+      );
   }
 }
 
@@ -1273,7 +1330,7 @@ function addGatesAlongChain(scene, mat, chain, count) {
 // 둔다(요구사항). tip에서 안쪽으로 GATE_INTERVAL_SEC 간격으로 놓되, 중심에서
 // GATE_CENTER_CLEAR 안쪽엔 두지 않아 교차 공간을 비운다. 갈래 하나가 2.75초라
 // 지금은 갈래마다 tip 문 하나씩이다.
-function buildB7(scene, wallMat, labelMat) {
+function buildB7(scene, wallMat, labelMat, pedRoads, spawnBlocks) {
   const center = pt("B7");
   const half = durationToDistance(BUILDING_DWELL_SEC) / 2;
   const gateStep = durationToDistance(GATE_INTERVAL_SEC);
@@ -1284,13 +1341,20 @@ function buildB7(scene, wallMat, labelMat) {
       dir = dirVec(h);
     const tip = [center[0] + dir.x * half, center[1] + dir.z * half];
     addBuildingArm(scene, wallMat, center, tip, perp);
+    // B7은 도수 3이라 세 방향이 서로 다른 도로에 남는다 — id(B7)만으론 못
+    // 좁히므로 방향(nb)까지 같이 넘겨 findPedRoad가 정확한 갈래를 찾게 한다.
+    const road = findPedRoad(pedRoads, "B7", nb);
     for (let d = half; d >= centerClear; d -= gateStep) {
-      addGate(
-        scene,
-        wallMat,
-        [center[0] + dir.x * d, center[1] + dir.z * d],
-        perp,
-      );
+      const gx = center[0] + dir.x * d,
+        gz = center[1] + dir.z * d;
+      addGate(scene, wallMat, [gx, gz], perp);
+      if (road)
+        addSpawnBlock(
+          spawnBlocks,
+          road,
+          nearestArcLength(road.segs, gx, gz),
+          GATE_CLEAR,
+        );
     }
     addEndWall(scene, labelMat, tip, perp, CEIL, CEIL + BUILDING_H);
   }
