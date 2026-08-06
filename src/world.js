@@ -496,7 +496,14 @@ function buildRouteWaypoints(hops) {
   return { names, waypoints: names.map(pt) };
 }
 
-export function createWorld(container) {
+// opts.onNavHint(laneIndex) — 회전·게이트 안내가 새로 뜰 때마다 부른다(0=왼쪽
+// 1=가운데 2=오른쪽). main.js가 이 값을 폰(phone.pushMap)에 그대로 넘긴다.
+// world.js는 phone.js를 몰라도 되게(§1 파일 경계) 콜백 하나로만 내보낸다 —
+// state.onGate/fireGate와 같은 모양의, 접점이 아닌 "밖으로 내주는 함수".
+// 신호등·공사장 경고는 안 부른다 — "이 차선 피하라"는 뜻이라 pushMap("이
+// 차선으로 가라")과 의미가 반대일 수 있다(world.js 자체 토스트로만 남는다).
+export function createWorld(container, opts = {}) {
+  const onNavHint = opts.onNavHint;
   const canvas = document.createElement("canvas");
   canvas.style.cssText = "display:block;width:100%;height:100%";
   container.appendChild(canvas);
@@ -551,6 +558,7 @@ export function createWorld(container) {
       s: h.s,
       arrow: h.dir === "left" ? "←" : h.dir === "right" ? "→" : "↑",
       text: h.dir === "left" ? "왼쪽" : h.dir === "right" ? "오른쪽" : "직진",
+      lane: h.dir === "left" ? 0 : h.dir === "right" ? 2 : 1, // onNavHint용
       resolved: false,
       announced: false,
     })),
@@ -646,6 +654,9 @@ export function createWorld(container) {
           showToast(toast, front.arrow, front.text);
           toastTimer = TOAST_DURATION;
           front.announced = true;
+          if (onNavHint && front.kind !== "warn") {
+            onNavHint(front.kind === "gate" ? front.door : front.lane);
+          }
         }
         if (prevS < front.s && s >= front.s) {
           if (front.kind === "gate") {

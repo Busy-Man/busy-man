@@ -2,13 +2,28 @@
 // 담당: A
 //
 // 이번 단계 범위: world.js 연결 + 좌우 입력 라우팅 + 렌더 루프 + 플레이 타이머 +
-// 도착 결과 화면(최종 시간 + 다시 시작). 퀴즈(state.quizOpen)가 붙으면 isPaused만
-// 바꿔 타이머·이동을 함께 멈춘다.
+// 도착 결과 화면(최종 시간 + 다시 시작) + 폰·퀴즈 마운트(state.quizOpen 연동,
+// world의 회전·게이트 안내를 phone.pushMap으로 배선).
 
 import { createWorld } from './world.js';
+import { mountPhone } from './phone-a.js';
+import { mountQuiz } from './quiz-a.js';
+import { state } from './state.js';
 
 const stage = document.getElementById('stage');
-const world = createWorld(stage);
+
+// phone-a.js/quiz-a.js, content/day1-a.json은 B가 만든 실제 구현이다 — 정식
+// 이름(phone.js/quiz.js/day1.json)은 아직 주석뿐인 빈 스텁이라 그쪽을 부르면
+// 아무것도 못 뜬다. B가 정식 이름으로 옮기면 이 경로 세 곳만 고치면 된다.
+const content = await fetch('./content/day1-a.json').then((r) => r.json());
+const phone = mountPhone(document.body, { content, state });
+const quiz = mountQuiz(document.body, { content, state });
+
+const world = createWorld(stage, {
+  // 회전·게이트 안내가 새로 뜰 때마다 폰에도 같은 방향을 띄운다(휴대폰 이벤트
+  // 큐 3단계). 신호등·공사장 경고는 안 넘긴다 — world.js의 onNavHint 주석 참조.
+  onNavHint: (lane) => phone.pushMap(lane),
+});
 
 // 회전(방향키 좌우)과 이동(A/D)을 분리해서 라우팅한다 — world.js는 키 이름을
 // 몰라도 되게 { turnLeft, turnRight, moveLeft, moveRight }로만 받는다.
@@ -18,12 +33,24 @@ const KEY_MAP = {
   a: 'moveLeft', d: 'moveRight',
 };
 
+// 기본은 폰을 보는 자세다 — Space를 누르고 있는 동안만 고개를 들어 정면(길)을
+// 본다(prototype과 동일, docs/기획_1차_보완.md). phone.js는 키보드를 안 듣기로
+// 했으므로(파일 상단 주석) 이 라우팅도 A(main.js) 몫이다.
 addEventListener('keydown', (e) => {
+  if (e.key === ' ') {
+    phone.setVisible(false);
+    e.preventDefault();
+    return;
+  }
   const k = e.key.toLowerCase();
   const field = KEY_MAP[k];
   if (field) { input[field] = true; e.preventDefault(); }
 });
 addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    phone.setVisible(true);
+    return;
+  }
   const k = e.key.toLowerCase();
   const field = KEY_MAP[k];
   if (field) input[field] = false;
@@ -32,17 +59,18 @@ addEventListener('resize', () => world.resize());
 
 // ── 플레이 시간(타이머) ─────────────────────────────
 // elapsed: 경과 시간(초). clearTime: 클리어 순간 확정되는 별도 상태 — 향후 기록
-// 저장/최고 기록에 쓰려고 따로 둔다. isPaused(): 퀴즈 등으로 멈춘 동안 true면
-// 타이머와 이동을 함께 멈춘다. 지금은 퀴즈가 없어 항상 false지만, state.quizOpen이
-// 붙으면 여기 한 줄만 바꾸면 된다.
+// 저장/최고 기록에 쓰려고 따로 둔다. isPaused(): 퀴즈가 뜬 동안(state.quizOpen)
+// 타이머와 이동을 함께 멈춘다.
 let elapsed = 0;
 let clearTime = null;
 function isPaused() {
-  return false; // TODO: state.quizOpen이 생기면 return state.quizOpen;
+  return state.quizOpen;
 }
 
 function restart() {
   world.reset();
+  phone.reset();
+  quiz.reset();
   elapsed = 0;
   clearTime = null;
   result.hide();
