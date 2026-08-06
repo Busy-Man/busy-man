@@ -93,6 +93,7 @@ export function mountQuiz(root, opts) {
     sourceRenderedAt = new Map(timeline.renderedAt);
   }
   document.addEventListener('bm:phone-timeline', onPhoneTimeline);
+  document.addEventListener('keydown', onKeyDown);
 
   // 카운트다운과 감속 복귀를 같은 누산기로 센다.
   // setTimeout 을 섞으면 한 파일에 시간 소스가 둘이 되고, 탭을 나간 사이
@@ -159,7 +160,7 @@ export function mountQuiz(root, opts) {
     // 섞어 두면 콘텐츠를 쓸 때 보기를 자연스러운 순서(시각순·오름차순)로 둘 수 있어
     // 사람이 정답을 눈으로 검토하기도 쉬워진다.
     const quiz = shuffleChoices(source);
-    const el = buildModal(quiz, content, judge);
+    const el = buildModal(quiz, content);
     host.appendChild(el);
 
     // 이 줄이 없으면 브라우저가 「붙였다」와 「클래스를 뗐다」를 한 프레임에 계산해
@@ -170,10 +171,12 @@ export function mountQuiz(root, opts) {
     current = { quiz, el, timerEl: el.querySelector('.bm-quiz-timer') };
     countdownLeft = TUNING.countdownSec;
     state.quizOpen = true;
+  }
 
-    // 키보드를 듣지 않는다. 답안 선택은 마우스 클릭뿐이다 (docs/ui-spec.md §입력).
-    // 목업 이미지의 `1. 2. 3.` 은 AI 생성 과정에서 붙은 것이라 단축키가 아니고,
-    // 키를 들으면 main.js(A)의 입력 라우팅과 겹쳐 같은 키가 두 번 먹는다.
+  function onKeyDown(event) {
+    if (!current || event.key < '1' || event.key > '3') return;
+    event.preventDefault();
+    judge(Number(event.key) - 1);
   }
 
   // picked === -1 이면 무응답. 오답과 같은 경로를 타고 벌도 같다.
@@ -190,6 +193,10 @@ export function mountQuiz(root, opts) {
     }
 
     countdownLeft = 0;
+    if (picked >= 0) {
+      const pickedButton = el.querySelectorAll('.bm-quiz-choice')[picked];
+      if (pickedButton) pickedButton.classList.add('bm-quiz-picked');
+    }
     showResult(el, content, correct, picked === -1, penaltyKind);
     close(el);
   }
@@ -245,6 +252,7 @@ export function mountQuiz(root, opts) {
   function destroy() {
     cancelAnimationFrame(raf);
     document.removeEventListener('bm:phone-timeline', onPhoneTimeline);
+    document.removeEventListener('keydown', onKeyDown);
     reset();
   }
 
@@ -262,6 +270,7 @@ function shuffleChoices(quiz) {
     [order[i], order[j]] = [order[j], order[i]];
   }
   return {
+    sender: quiz.sender,
     prompt: quiz.prompt,
     choices: order.map((i) => quiz.choices[i]),
     answer: order.indexOf(quiz.answer)
@@ -281,6 +290,9 @@ function validateContent(content) {
     if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 2) {
       console.error('[quiz] quizzes[' + i + '].answer 는 0..2 여야 합니다:', q.answer);
     }
+    if (typeof q.sender !== 'string' || !q.sender) {
+      console.error('[quiz] quizzes[' + i + '].sender 가 없습니다:', q.sender);
+    }
     if (!Number.isInteger(q.sourceMessageIndex)
         || q.sourceMessageIndex < 0
         || !Array.isArray(content.messages)
@@ -297,7 +309,7 @@ function validateContent(content) {
 
 // docs/ui-spec.md 의 구성 — 위에서 아래로
 //   상태바(시계 · 카운트다운) / 수신 말풍선 / 장식 입력란 / 보기 3개
-function buildModal(quiz, content, onPick) {
+function buildModal(quiz, content) {
   const el = document.createElement('div');
   // 붙일 때는 화면 밖에 있다. 붙인 뒤에 이 클래스를 떼면 위로 올라온다.
   el.className = 'bm-quiz bm-quiz-enter';
@@ -323,6 +335,9 @@ function buildModal(quiz, content, onPick) {
   body.className = 'bm-quiz-body';
 
   // 질문은 문제 상자가 아니라 **수신 말풍선**이다.
+  const sender = document.createElement('div');
+  sender.className = 'bm-quiz-sender';
+  sender.textContent = quiz.sender;
   const ask = document.createElement('div');
   ask.className = 'bm-quiz-ask';
   ask.textContent = quiz.prompt;
@@ -345,13 +360,20 @@ function buildModal(quiz, content, onPick) {
     btn.className = 'bm-quiz-choice';
     btn.type = 'button';
     // textContent 로만 넣는다. 콘텐츠가 AI 생성물이라 마크업이 섞여 들어올 수 있다.
-    btn.textContent = text;
-    btn.addEventListener('click', () => onPick(i));
+    const number = document.createElement('span');
+    number.className = 'bm-quiz-choice-number';
+    number.textContent = String(i + 1);
+    const reply = document.createElement('span');
+    reply.className = 'bm-quiz-choice-text';
+    reply.textContent = text;
+    btn.appendChild(number);
+    btn.appendChild(reply);
     choices.appendChild(btn);
-    // 자동 포커스를 주지 않는다. 포커스된 버튼에서 Space 는 클릭이고,
-    // A 의 Space 는 고개 들기다. 둘이 같이 발화한다.
+    // 보기의 순서와 단축키만 맞춘다. 마우스로 답을 고르면 앞을 보지 않아도 되므로,
+    // 선택은 모달이 열린 동안의 숫자키로만 받는다.
   });
 
+  body.appendChild(sender);
   body.appendChild(ask);
   body.appendChild(compose);
   body.appendChild(choices);
@@ -428,6 +450,9 @@ function injectStyle() {
   background:#F1F3F6; color:#2A2F36; border-radius:9px; padding:11px 13px;
   font-size:13.5px; line-height:20px; font-weight:600; word-break:break-all;
 }
+.bm-quiz-sender{
+  margin:0 0 5px 4px; color:#69717C; font-size:11px; font-weight:650;
+}
 .bm-quiz-compose{
   display:flex; align-items:center; gap:8px; margin:12px 0 12px;
   margin-top:auto;                               /* 질문과 답장 후보 사이를 벌려 아래로 붙인다 */
@@ -440,12 +465,21 @@ function injectStyle() {
   display:flex; align-items:center; justify-content:center; font-size:13px;
 }
 .bm-quiz-choice{
-  display:block; width:100%; text-align:left; margin-bottom:7px;
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left; margin-bottom:7px;
   padding:10px 13px; font:inherit; font-size:13px; color:#2A2F36;
   background:#fff; border:1px solid #D3D8DE; border-left:3px solid #2F6F6B;
-  border-radius:8px; cursor:pointer;
+  border-radius:8px; cursor:default; pointer-events:none;
 }
-.bm-quiz-choice:hover:not(:disabled){ background:#F2F6F5 }
+.bm-quiz-choice-number{
+  flex:0 0 20px; height:20px; border-radius:50%; background:#E6F0EF; color:#2F6F6B;
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
+}
+.bm-quiz-choice-text{ flex:1; min-width:0; }
+.bm-quiz-choice.bm-quiz-picked{
+  transform:translateY(1px); background:#E8EBEF; border-color:#8A9099;
+  box-shadow:inset 0 2px 4px rgba(42,47,54,.18);
+}
+.bm-quiz-choice.bm-quiz-picked:disabled{ opacity:1; }
 .bm-quiz-choice:disabled{ cursor:default; opacity:.55 }
 .bm-quiz-result{
   margin-top:10px; font-size:13px; font-weight:640; text-align:center;
