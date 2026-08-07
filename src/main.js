@@ -14,7 +14,7 @@ const stage = document.getElementById("stage");
 
 const content = await fetch("./content/day1.json").then((r) => r.json());
 const phone = mountPhone(document.body, { content, state });
-const quiz = mountQuiz(document.body, { content, state });
+let quiz = mountQuiz(document.body, { content, state });
 
 const world = createWorld(stage, {
   // 회전·게이트·공사장·신호등 안내가 새로 뜰 때마다 이벤트 그대로 폰에 넘긴다
@@ -78,7 +78,8 @@ function isPaused() {
 function restart() {
   world.reset();
   phone.reset();
-  quiz.reset();
+  // 도착 시 quiz.destroy()가 raf 루프를 끊어 두므로 reset()만으로는 되살아나지 않으므로 다음과 같이 처리한다.
+  quiz = mountQuiz(document.body, { content, state });
   elapsed = 0;
   clearTime = null;
   result.hide();
@@ -112,6 +113,7 @@ function loop(now) {
   // 도착 순간 한 번만 클리어 시간을 확정하고 결과를 띄운다.
   if (world.arrived && clearTime === null) {
     phone.setVisible(false);
+    quiz.destroy();
     clearTime = elapsed;
     result.show(clearTime, world.hits);
   }
