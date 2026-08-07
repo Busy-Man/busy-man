@@ -93,6 +93,14 @@ const GATE_DOOR_X = [
 // 같은 이벤트가 다시 안내된다(재안내) — 실패해도 큐(이벤트)는 그대로 두고
 // resolved만 안 켠다.
 const WRONG_CHOICE_REWIND = 2;
+// 잘못된 게이트 안내 토스트가 떠 있는 시간(초). 신호등 갇힘 토스트와 달리 "끝나는
+// 순간"이 없어서(되돌린 뒤 곧바로 다시 달린다) 시간으로 자동 소멸시킨다.
+const WRONG_GATE_TOAST_SEC = 1.6;
+// 성공 제한 시간 = 이 경로의 순수 이동 시간 + 여유(초). docs/map/맵 시간 배분.md가
+// "예상 소요 시간 + 10초"로 정한 값을, 표에서 시간을 옮겨 적지 않고 경로 길이에서
+// 직접 잰다 — 그 문서의 예상 소요 시간 자체가 totalLength / SPEED 로 역산된 것이라
+// (§2 검증) 같은 결과가 나오고, ROUTES가 바뀌어도 표를 다시 손볼 필요가 없다.
+const TIME_LIMIT_BONUS_SEC = 10;
 const BUILDING_H = 4.0; // 게이트 위에 얹는 상자 높이
 // 건물 안에 머무는 시간(초). 건물은 노드에 얹힌 상자라 플레이어가 상자 길이만큼
 // 통과하고, 체류 시간 = 상자 길이 / SPEED다. 요구사항: 최소 5초 이상.
@@ -529,6 +537,8 @@ export function createWorld(container, opts = {}) {
   );
   const segments = toSegments(waypoints);
   const totalLength = segments.reduce((a, s) => a + s.len, 0);
+  // 이 경로의 성공 제한 시간. 시작할 때 경로가 정해지면 함께 확정된다(요구사항).
+  const timeLimitSec = totalLength / SPEED + TIME_LIMIT_BONUS_SEC;
 
   buildCityRoads(scene);
   // 행인 생성 금지 구간(현재는 게이트뿐)은 도로(pedRoads) 위의 s로 등록한다 —
@@ -588,6 +598,7 @@ export function createWorld(container, opts = {}) {
     arrived = false;
   let stun = 0, // 행인과 부딪힌 뒤 감속이 남은 시간
     hitCount = 0;
+  let toastLeft = 0; // > 0 이면 잘못된 게이트 토스트가 떠 있고, 0이 되면 지운다
 
   function update(dt, input) {
     // 이동 전에: 신호등에 안전 차선이 아닌 채로 진입했는지(=갇힘) 먼저 판단한다.
@@ -608,6 +619,12 @@ export function createWorld(container, opts = {}) {
     if (trap.trapEnded) {
       toast.dataset.sticky = "";
       hideToast(toast);
+    }
+    // 잘못된 게이트 토스트 자동 소멸. 신호등 갇힘(sticky) 토스트가 이미 떠 있으면
+    // hideToast가 sticky를 보고 건너뛰므로 여기서 실수로 지워지지 않는다.
+    if (toastLeft > 0) {
+      toastLeft = Math.max(0, toastLeft - dt);
+      if (toastLeft === 0) hideToast(toast);
     }
 
     const turnLeft = !trap.trapped && !!(input && input.turnLeft),
@@ -680,8 +697,11 @@ export function createWorld(container, opts = {}) {
             if (lane === front.door) {
               front.resolved = true;
             } else {
-              // 잘못된 문 — 큐를 소비하지 않는다(resolved 유지 false). 되돌린
-              // 자리에서 다시 접근하면 announced가 꺼져 있어 같은 안내가 다시 뜬다.
+              // 잘못된 문 — 되돌리기 전에 신호등 패널티와 같은 토스트로 알린다(요구사항).
+              // 큐를 소비하지 않는다(resolved 유지 false). 되돌린 자리에서 다시
+              // 접근하면 announced가 꺼져 있어 같은 안내가 다시 뜬다.
+              showToast(toast, "⚠", "잘못된 게이트 진입", false);
+              toastLeft = WRONG_GATE_TOAST_SEC;
               s = Math.max(0, s - durationToDistance(WRONG_CHOICE_REWIND));
               const p = pointAtArcLength(segments, s, 0);
               x = p.x;
@@ -736,6 +756,7 @@ export function createWorld(container, opts = {}) {
     arrived = false;
     stun = 0;
     hitCount = 0;
+    toastLeft = 0;
     for (const p of peds) {
       p.s = p.s0;
       p.hit = false;
@@ -782,6 +803,9 @@ export function createWorld(container, opts = {}) {
     get arrived() {
       return arrived;
     }, // 도착 여부 — main.js가 타이머를 멈추고 결과를 띄운다
+    get timeLimit() {
+      return timeLimitSec;
+    }, // 이 경로의 성공 제한 시간(초) — main.js 시간 게이지가 elapsed/timeLimit로 채운다
   };
 }
 
@@ -2230,8 +2254,9 @@ function buildToast(container) {
   // index.html의 #stage{position:fixed;inset:0}를 인라인 스타일이 덮어써서
   // 캔버스 크기 계산이 깨진다(실제로 겪은 버그).
   const el = document.createElement("div");
+  // top:44px — 상단 중앙의 부스터 게이지 바(top:16, 높이 14)와 겹치지 않게 그 아래에 둔다.
   el.style.cssText = `
-    position:fixed; top:24px; left:50%; transform:translate(-50%,-8px);
+    position:fixed; top:44px; left:50%; transform:translate(-50%,-8px);
     display:flex; align-items:center; gap:10px; padding:10px 20px;
     background:rgba(27,29,33,0.82); color:#fff; border-radius:10px;
     font:600 15px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
