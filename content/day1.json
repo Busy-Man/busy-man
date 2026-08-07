@@ -1197,6 +1197,376 @@
         "prompt": "행사장 셔틀은 어디에서 출발하나요?",
         "field": "q40"
       }
+    },
+    {
+      "id": "b41-business-trip",
+      "messages": [
+        {
+          "id": "m41a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "다음 주 외근 일정을 확인해 주세요."
+        },
+        {
+          "id": "m41b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "13일에는 신규 시스템 교육 때문에 출장 갑니다."
+        },
+        {
+          "id": "m41c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "출장 준비 목록도 오늘 공유하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q41",
+        "difficulty": "complex",
+        "sourceMessageId": "m41b",
+        "sender": "최 과장님",
+        "prompt": "출장 날짜와 목적이 어떻게 되나요?",
+        "choices": [
+          "13일 신규 시스템 교육 출장입니다",
+          "13일 계약 협의 출장입니다",
+          "15일 신규 시스템 교육 출장입니다",
+          "15일 계약 협의 출장입니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b42-meeting-slot",
+      "messages": [
+        {
+          "id": "m42a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "고객사 회의 일정이 확정됐습니다."
+        },
+        {
+          "id": "m42b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "회의는 오후 2시에 503호에서 진행합니다."
+        },
+        {
+          "id": "m42c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "화상 장비도 미리 점검해 둘게요."
+        }
+      ],
+      "quiz": {
+        "id": "q42",
+        "difficulty": "complex",
+        "sourceMessageId": "m42b",
+        "sender": "김 대리",
+        "prompt": "고객사 회의는 언제, 어디에서 하나요?",
+        "choices": [
+          "오후 2시, 503호입니다",
+          "오후 2시, 302호입니다",
+          "오후 4시, 503호입니다",
+          "오후 4시, 302호입니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b43-deliverable-format",
+      "messages": [
+        {
+          "id": "m43a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "최종 산출물 전달 조건을 정리했습니다."
+        },
+        {
+          "id": "m43b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "16일까지 PDF 형식으로 보내 주세요."
+        },
+        {
+          "id": "m43c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "원본 파일은 별도로 보관하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q43",
+        "difficulty": "complex",
+        "sourceMessageId": "m43b",
+        "sender": "이 팀장님",
+        "prompt": "산출물 납기일과 파일 형식은 무엇인가요?",
+        "choices": [
+          "16일까지 PDF로 보냅니다",
+          "16일까지 PPT로 보냅니다",
+          "18일까지 PDF로 보냅니다",
+          "18일까지 PPT로 보냅니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b44-release-target",
+      "messages": [
+        {
+          "id": "m44a",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "오늘 배포 대상을 다시 확인합니다."
+        },
+        {
+          "id": "m44b",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "운영 환경에는 v2.4.1 버전을 배포합니다."
+        },
+        {
+          "id": "m44c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "승인 내역도 배포 기록에 남겨 주세요."
+        }
+      ],
+      "quiz": {
+        "id": "q44",
+        "difficulty": "complex",
+        "sourceMessageId": "m44b",
+        "sender": "김 대리",
+        "prompt": "어느 환경에 어떤 버전을 배포하나요?",
+        "choices": [
+          "운영 환경에 v2.4.1을 배포합니다",
+          "운영 환경에 v2.4.3을 배포합니다",
+          "스테이징 환경에 v2.4.1을 배포합니다",
+          "스테이징 환경에 v2.4.3을 배포합니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b45-ticket-owner-complex",
+      "messages": [
+        {
+          "id": "m45a",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "긴급 티켓 담당자를 확정할게요."
+        },
+        {
+          "id": "m45b",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "PAY-184 티켓은 최 선임이 맡습니다."
+        },
+        {
+          "id": "m45c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "담당자별 진행 상황도 정리하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q45",
+        "difficulty": "complex",
+        "sourceMessageId": "m45b",
+        "sender": "박PM",
+        "prompt": "어떤 티켓을 누가 맡았나요?",
+        "choices": [
+          "PAY-184는 최 선임이 맡았습니다",
+          "PAY-184는 이 대리가 맡았습니다",
+          "AUTH-207은 최 선임이 맡았습니다",
+          "AUTH-207은 이 대리가 맡았습니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b46-maintenance-target",
+      "messages": [
+        {
+          "id": "m46a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "야간 서버 점검 일정이 등록되었습니다."
+        },
+        {
+          "id": "m46b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "인증 서버 점검은 오늘 밤 11시에 시작합니다."
+        },
+        {
+          "id": "m46c",
+          "from": "최 선임",
+          "kind": "person",
+          "text": "점검 전에 배치 작업을 종료하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q46",
+        "difficulty": "complex",
+        "sourceMessageId": "m46b",
+        "sender": "최 과장님",
+        "prompt": "어느 서버를 몇 시에 점검하나요?",
+        "choices": [
+          "인증 서버를 밤 11시에 점검합니다",
+          "인증 서버를 새벽 1시에 점검합니다",
+          "결제 서버를 밤 11시에 점검합니다",
+          "결제 서버를 새벽 1시에 점검합니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b47-client-copies",
+      "messages": [
+        {
+          "id": "m47a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "고객사 방문 서류를 준비하고 있습니다."
+        },
+        {
+          "id": "m47b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "한빛물산에는 계약서 4부를 가져가 주세요."
+        },
+        {
+          "id": "m47c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "서명란도 빠짐없이 확인하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q47",
+        "difficulty": "complex",
+        "sourceMessageId": "m47b",
+        "sender": "김 대리",
+        "prompt": "어느 고객사에 계약서를 몇 부 가져가나요?",
+        "choices": [
+          "한빛물산에 4부 가져갑니다",
+          "한빛물산에 2부 가져갑니다",
+          "새봄전자에 4부 가져갑니다",
+          "새봄전자에 2부 가져갑니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b48-flight-gate",
+      "messages": [
+        {
+          "id": "m48a",
+          "from": "알림",
+          "kind": "notice",
+          "text": "출장 항공편 정보가 업데이트되었습니다."
+        },
+        {
+          "id": "m48b",
+          "from": "알림",
+          "kind": "notice",
+          "text": "14일 출발 항공편의 탑승구는 B12입니다."
+        },
+        {
+          "id": "m48c",
+          "from": "박PM",
+          "kind": "person",
+          "text": "공항 이동 시간도 일정에 반영할게요."
+        }
+      ],
+      "quiz": {
+        "id": "q48",
+        "difficulty": "complex",
+        "sourceMessageId": "m48b",
+        "sender": "이 팀장님",
+        "prompt": "항공편 출발일과 탑승구는 무엇인가요?",
+        "choices": [
+          "14일 출발, B12 탑승구입니다",
+          "14일 출발, C08 탑승구입니다",
+          "16일 출발, B12 탑승구입니다",
+          "16일 출발, C08 탑승구입니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b49-training-schedule",
+      "messages": [
+        {
+          "id": "m49a",
+          "from": "박PM",
+          "kind": "person",
+          "text": "보안 교육 일정이 확정됐습니다."
+        },
+        {
+          "id": "m49b",
+          "from": "박PM",
+          "kind": "person",
+          "text": "교육은 금요일에 7층 교육장에서 진행합니다."
+        },
+        {
+          "id": "m49c",
+          "from": "이 대리",
+          "kind": "person",
+          "text": "참석자 명단은 미리 전달하겠습니다."
+        }
+      ],
+      "quiz": {
+        "id": "q49",
+        "difficulty": "complex",
+        "sourceMessageId": "m49b",
+        "sender": "최 과장님",
+        "prompt": "보안 교육 날짜와 장소는 어떻게 되나요?",
+        "choices": [
+          "금요일, 7층 교육장입니다",
+          "금요일, 4층 세미나실입니다",
+          "월요일, 7층 교육장입니다",
+          "월요일, 4층 세미나실입니다"
+        ],
+        "answer": 0
+      }
+    },
+    {
+      "id": "b50-client-call",
+      "messages": [
+        {
+          "id": "m50a",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "고객사 확인 통화 일정을 잡았습니다."
+        },
+        {
+          "id": "m50b",
+          "from": "정 과장",
+          "kind": "person",
+          "text": "오후 4시에 견적 범위를 논의할 예정입니다."
+        },
+        {
+          "id": "m50c",
+          "from": "김 팀장",
+          "kind": "person",
+          "text": "통화 전에 변경 요청을 정리해 두죠."
+        }
+      ],
+      "quiz": {
+        "id": "q50",
+        "difficulty": "complex",
+        "sourceMessageId": "m50b",
+        "sender": "박PM",
+        "prompt": "몇 시에 어떤 안건으로 통화하나요?",
+        "choices": [
+          "오후 4시에 견적 범위를 논의합니다",
+          "오후 4시에 점검 일정을 논의합니다",
+          "오후 5시에 견적 범위를 논의합니다",
+          "오후 5시에 점검 일정을 논의합니다"
+        ],
+        "answer": 0
+      }
     }
   ],
   "values": {
