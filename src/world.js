@@ -40,10 +40,17 @@
 **/
 
 import * as THREE from "../vendor/three.module.js";
+import { GLTFLoader } from "../vendor/GLTFLoader.js";
+import { state } from "./state.js";
 
 // ── 튜닝 상수 ────────────────────────────────────
 const EYE = 1.62;
 const SPEED = 6.0;
+const BOOST_SPEED = 12.0; // 부스터 사용 중 이동 속도 (기본 SPEED=6 대비)
+// 부스터 게이지 초당 소모량(%). 풀 게이지가 약 3.3초 지속되는 값이다 —
+// 근거가 있는 값이 아니라 잠정치이고, 8/6류 밸런싱 대상이다
+// (quiz.js TUNING.gaugeOnCorrect/gaugeOnWrong과 짝, docs/balance-todo.md 참고).
+const BOOST_DRAIN_PER_SEC = 30;
 
 const STEER_ACCEL = 26,
   STEER_DAMP = 30,
@@ -87,6 +94,14 @@ const GATE_DOOR_X = [
 // 같은 이벤트가 다시 안내된다(재안내) — 실패해도 큐(이벤트)는 그대로 두고
 // resolved만 안 켠다.
 const WRONG_CHOICE_REWIND = 2;
+// 잘못된 게이트 안내 토스트가 떠 있는 시간(초). 신호등 갇힘 토스트와 달리 "끝나는
+// 순간"이 없어서(되돌린 뒤 곧바로 다시 달린다) 시간으로 자동 소멸시킨다.
+const WRONG_GATE_TOAST_SEC = 1.6;
+// 성공 제한 시간 = 이 경로의 순수 이동 시간 + 여유(초). docs/map/맵 시간 배분.md가
+// "예상 소요 시간 + 10초"로 정한 값을, 표에서 시간을 옮겨 적지 않고 경로 길이에서
+// 직접 잰다 — 그 문서의 예상 소요 시간 자체가 totalLength / SPEED 로 역산된 것이라
+// (§2 검증) 같은 결과가 나오고, ROUTES가 바뀌어도 표를 다시 손볼 필요가 없다.
+const TIME_LIMIT_BONUS_SEC = 10;
 const BUILDING_H = 4.0; // 게이트 위에 얹는 상자 높이
 // 건물 안에 머무는 시간(초). 건물은 노드에 얹힌 상자라 플레이어가 상자 길이만큼
 // 통과하고, 체류 시간 = 상자 길이 / SPEED다. 요구사항: 최소 5초 이상.
@@ -121,7 +136,8 @@ const ZONE_SEC = 2.2;
 // 똑같은 스타일로 그린다 — "선택 안 된 길도 실제 길이랑 UI가 똑같아야 한다".
 const COLOR = {
   bg: 0xbfe3f5, // 하늘 — 예전엔 검은색이었다
-  ground: 0xf3f1ea, // 도로망 바깥 빈 땅
+  ground: 0x8fc328, // 도로망 바깥 빈 땅 — 잔디(연두)
+  ground2: 0x86b42b, // 잔디 줄무늬(약간 진한 연두) — floor/floor2와 같은 방식
   floor: 0xedeff2,
   floor2: 0xe6e9ed,
   wall: 0xb7c2cc,
@@ -134,17 +150,19 @@ const COLOR = {
   tFloor2: 0xf0d488,
   tWall: 0xe6c657,
   tWall2: 0xd8b845,
-  cFloor: 0xf5c9a0, // C 공사장 — 주황 계열
+  cFloor: 0xf5c9a0, // C 공사장 바닥 — 주황 계열(벽은 fence2.glb로 바뀌어 구분색 없앰)
   cFloor2: 0xf0b986,
-  cWall: 0xe39a5a,
-  cWall2: 0xd68a48,
   ped: 0x7c848e, // 행인 몸통 — prototype 그대로
   pedHead: 0x69717b, // 행인 머리 — prototype 그대로
   goal: 0x2f6f6b, // 도착 지점 — prototype의 accent(청록)
   crosswalk1: 0x22262b, // 신호등 바닥 횡단보도 — 진한 회색/검정
   crosswalk2: 0xf2f4f7, // 횡단보도 흰 줄
-  barricade: 0xf2a154, // 공사장 바리게이트 — 주황
-  barricade2: 0xffffff, // 바리게이트 경고 줄무늬 — 검정
+  treeTrunk: 0xa0671b, // tree.glb 줄기 — 원본 재질에 색이 없어(흰색) 코드에서 새로 입힌다
+  treeLeaf: 0x84a641, // tree.glb 잎
+  // barricade.glb 큐브 이름(검정/주황/하양) 그대로 색만 입힌다 — 요구사항: 주황은 최대한 쨍하게.
+  barricadeBlack: 0x2e2e2e,
+  barricadeOrange: 0xf57c00,
+  barricadeWhite: 0x2f2f2f,
 };
 
 // ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
@@ -513,6 +531,13 @@ export function createWorld(container, opts = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(COLOR.bg);
   scene.fog = new THREE.Fog(COLOR.bg, 8, 90);
+  // 나머지 오브젝트는 전부 MeshBasicMaterial(무광원)이라 빛의 영향을 안 받지만,
+  // fence.glb는 GLTFLoader가 만드는 MeshStandardMaterial(PBR)이라 광원이 없으면
+  // 새까맣게 나온다 — fence만을 위한 최소 광원.
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(5, 12, 3);
+  scene.add(sun);
 
   const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 300);
 
@@ -523,11 +548,14 @@ export function createWorld(container, opts = {}) {
   );
   const segments = toSegments(waypoints);
   const totalLength = segments.reduce((a, s) => a + s.len, 0);
+  // 이 경로의 성공 제한 시간. 시작할 때 경로가 정해지면 함께 확정된다(요구사항).
+  const timeLimitSec = totalLength / SPEED + TIME_LIMIT_BONUS_SEC;
 
   buildCityRoads(scene);
-  // 행인 생성 금지 구간(현재는 게이트뿐)은 도로(pedRoads) 위의 s로 등록한다 —
-  // 건물·게이트가 pedRoads/spawnBlocks를 공유해야 같은 도로 객체로 매칭되므로
-  // 여기서 한 번만 만들어 두 함수에 그대로 넘긴다.
+  // 행인 생성 금지 구간(게이트 + 신호등 구역)은 도로(pedRoads) 위의 s로 등록한다 —
+  // 건물·게이트·이벤트가 pedRoads/spawnBlocks를 공유해야 같은 도로 객체로 매칭되므로
+  // 여기서 한 번만 만들어 그대로 넘긴다. createPedestrians가 이 등록을 읽어야 하므로
+  // 반드시 그보다 먼저 채운다(순서 중요).
   const pedRoads = buildPedRoads();
   const spawnBlocks = [];
   const buildings = buildBuildings(
@@ -537,15 +565,40 @@ export function createWorld(container, opts = {}) {
     pedRoads,
     spawnBlocks,
   );
-  const peds = createPedestrians(scene, pedRoads, spawnBlocks);
-  buildGoalMarker(scene, waypoints);
   // 공사장(C)·신호등(T) 이벤트 — 바리게이트/안전 차선을 여기서 한 번만 정한다.
-  const { events, navHints } = createEvents(
+  // 신호등 구역엔 패널티용 군중(buildCrowd)이 이미 서 있으므로, 지도 전체에
+  // 흩뿌리는 랜덤 배치 행인이 그 위에 겹쳐 나오지 않게 spawnBlocks에도
+  // 등록한다(게이트와 같은 방식) — 다른 구역의 랜덤 행인은 그대로 둔다.
+  const { events, navHints, barricadePending } = createEvents(
     scene,
     routeNames,
     segments,
     totalLength,
+    pedRoads,
+    spawnBlocks,
   );
+  // barricade.glb도 비동기 로드 — fence.glb/tree.glb와 같은 패턴(자리는 미리
+  // 잡아 두고, 모델은 로드되는 대로 붙인다). 폭(w)·높이(BARR_H)는 모든
+  // 바리게이트가 같으니 스케일도 한 번만 계산한다.
+  loadBarricadeUnit()
+    .then((unit) => {
+      const w = LANE_HALF * 0.95 * 2;
+      const scaleX = w / unit.width,
+        scaleY = BARR_H / unit.height;
+      for (const group of barricadePending) {
+        const clone = unit.unit.clone(true);
+        clone.scale.set(scaleX, scaleY, scaleY);
+        group.add(clone);
+      }
+    })
+    .catch((err) => {
+      console.error(
+        "barricade.glb 로드 실패 — 공사장 바리게이트가 안 보인다",
+        err,
+      );
+    });
+  const peds = createPedestrians(scene, pedRoads, spawnBlocks);
+  buildGoalMarker(scene, waypoints);
   // 안내 큐 — 회전·게이트·공사장/신호등 경고를 거리(s) 순서 하나로 합친다.
   // update()는 이 중 "아직 안 끝난 것 중 가장 가까운 것"(맨 앞) 하나만 본다.
   // 회전·경고는 판정이 없어서 도착하는 순간 그냥 resolved=true(통과)가 되고,
@@ -582,6 +635,7 @@ export function createWorld(container, opts = {}) {
     arrived = false;
   let stun = 0, // 행인과 부딪힌 뒤 감속이 남은 시간
     hitCount = 0;
+  let toastLeft = 0; // > 0 이면 잘못된 게이트 토스트가 떠 있고, 0이 되면 지운다
 
   function update(dt, input) {
     // 이동 전에: 신호등에 안전 차선이 아닌 채로 진입했는지(=갇힘) 먼저 판단한다.
@@ -603,11 +657,25 @@ export function createWorld(container, opts = {}) {
       toast.dataset.sticky = "";
       hideToast(toast);
     }
+    // 잘못된 게이트 토스트 자동 소멸. 신호등 갇힘(sticky) 토스트가 이미 떠 있으면
+    // hideToast가 sticky를 보고 건너뛰므로 여기서 실수로 지워지지 않는다.
+    if (toastLeft > 0) {
+      toastLeft = Math.max(0, toastLeft - dt);
+      if (toastLeft === 0) hideToast(toast);
+    }
 
     const turnLeft = !trap.trapped && !!(input && input.turnLeft),
       turnRight = !trap.trapped && !!(input && input.turnRight);
     const moveLeft = !trap.trapped && !!(input && input.moveLeft),
       moveRight = !trap.trapped && !!(input && input.moveRight);
+
+    // 부스터 — 신호등 잘못된 차선에 갇힌 동안은 못 쓴다(요구사항). 게이지가
+    // 남아 있는 동안만 켜지고, 0이 되면 다음 프레임부터 자동으로 꺼진다.
+    const boosting =
+      !trap.trapped && !!(input && input.boost) && state.gauge > 0;
+    if (boosting) {
+      state.gauge = Math.max(0, state.gauge - BOOST_DRAIN_PER_SEC * dt);
+    }
 
     if (turnLeft && !turnRight) headingVel -= TURN_ACCEL * dt;
     else if (turnRight && !turnLeft) headingVel += TURN_ACCEL * dt;
@@ -623,11 +691,18 @@ export function createWorld(container, opts = {}) {
     else pvx -= Math.sign(pvx) * Math.min(Math.abs(pvx), STEER_DAMP * dt);
     pvx = clamp(pvx, -STEER_MAX, STEER_MAX);
 
-    // 충돌 감속은 world.js 안에서 전진 속도에 곱한다(AGENTS.md §2 — speedMul은
-    // 퀴즈 패널티 전용이라 여기 안 쓴다). 감속이 남아 있으면 이번 프레임 전진만 준다.
-    // 신호등에 갇혔으면 그동안은 군중과 함께 느린 속도로만 끌려간다.
+    // 충돌 감속(collisionMul)은 world.js 안에서만 걸고 복귀 타이머도 여기서 관리한다
+    // (AGENTS.md §2 — speedMul에 두면 퀴즈 쪽 복귀 타이머와 서로 지운다). 퀴즈 오답
+    // 패널티(state.speedMul)는 B(quiz.js)가 기록하는 값을 곱해서만 반영한다 —
+    // AGENTS.md §2가 못 박은 공식 SPEED * state.speedMul * collisionMul.
     const collisionMul = stun > 0 ? HIT_SLOW : 1;
-    const forward = trap.trapped ? trap.trapSpeed : SPEED * collisionMul;
+    // 가속 중엔 무적(docs/기획_1차_보완.md §조작) — 충돌 감속(collisionMul)과
+    // 퀴즈 감속(state.speedMul)을 모두 무시하고 BOOST_SPEED를 그대로 낸다.
+    const forward = trap.trapped
+      ? trap.trapSpeed
+      : boosting
+        ? BOOST_SPEED
+        : SPEED * state.speedMul * collisionMul;
     const fwd = dirVec(heading),
       perp = perpVec(heading);
     let nx = x + (fwd.x * forward + perp.x * pvx) * dt;
@@ -660,8 +735,11 @@ export function createWorld(container, opts = {}) {
             if (lane === front.door) {
               front.resolved = true;
             } else {
-              // 잘못된 문 — 큐를 소비하지 않는다(resolved 유지 false). 되돌린
-              // 자리에서 다시 접근하면 announced가 꺼져 있어 같은 안내가 다시 뜬다.
+              // 잘못된 문 — 되돌리기 전에 신호등 패널티와 같은 토스트로 알린다(요구사항).
+              // 큐를 소비하지 않는다(resolved 유지 false). 되돌린 자리에서 다시
+              // 접근하면 announced가 꺼져 있어 같은 안내가 다시 뜬다.
+              showToast(toast, "⚠", "잘못된 게이트 진입", false);
+              toastLeft = WRONG_GATE_TOAST_SEC;
               s = Math.max(0, s - durationToDistance(WRONG_CHOICE_REWIND));
               const p = pointAtArcLength(segments, s, 0);
               x = p.x;
@@ -689,7 +767,10 @@ export function createWorld(container, opts = {}) {
       heading,
       stun <= 0 && !trap.trapped,
     );
-    if (hit) {
+    // 가속 중엔 무적이라 부딪혀도 사람만 밀치고 지나간다 — hitCount·감속·
+    // 넉백을 적용하지 않는다(stepPedestrians가 이미 그 행인을 hit 처리해
+    // 다시 판정 대상이 되지는 않는다).
+    if (hit && !boosting) {
       hitCount++;
       stun = HIT_STUN;
       pvx = hit.pushSign * HIT_KNOCK; // 옆으로 튕긴다
@@ -713,6 +794,7 @@ export function createWorld(container, opts = {}) {
     arrived = false;
     stun = 0;
     hitCount = 0;
+    toastLeft = 0;
     for (const p of peds) {
       p.s = p.s0;
       p.hit = false;
@@ -759,6 +841,9 @@ export function createWorld(container, opts = {}) {
     get arrived() {
       return arrived;
     }, // 도착 여부 — main.js가 타이머를 멈추고 결과를 띄운다
+    get timeLimit() {
+      return timeLimitSec;
+    }, // 이 경로의 성공 제한 시간(초) — main.js 시간 게이지가 elapsed/timeLimit로 채운다
   };
 }
 
@@ -1056,7 +1141,16 @@ function nearestLane(lat, positions = LANE_X) {
 // 경로 위 T/C 노드마다 이벤트를 만든다. 바리게이트 차선(C)·안전 차선(T)은 여기서
 // 딱 한 번 랜덤으로 정하고, 통과할 때까지 바뀌지 않는다(요구사항). 메시(바리게이트·
 // 군중)도 여기서 만든다. 반환: events 배열과, 안내 토스트로 쓸 navHints.
-function createEvents(scene, routeNames, segments, totalLength) {
+// pedRoads/spawnBlocks는 신호등(T) 구역에 랜덤 배치 행인이 겹쳐 나오지 않게
+// 막는 데만 쓴다(게이트와 같은 방식) — createPedestrians보다 먼저 호출돼야 한다.
+function createEvents(
+  scene,
+  routeNames,
+  segments,
+  totalLength,
+  pedRoads,
+  spawnBlocks,
+) {
   const events = [];
   const navHints = [];
   const nodeS = (i) => (i < segments.length ? segments[i].startS : totalLength);
@@ -1071,25 +1165,41 @@ function createEvents(scene, routeNames, segments, totalLength) {
     color: COLOR.pedHead,
     side: THREE.DoubleSide,
   });
-  const barrMat = new THREE.MeshBasicMaterial({
-    map: barricadeTexture(),
-    side: THREE.DoubleSide,
-  });
+  // barricade.glb는 비동기로 로드되므로, 자리(위치·회전)만 여기서 정해 빈
+  // 그룹을 세워 두고 모델은 loadBarricadeUnit이 끝난 뒤 붙인다(fence.glb와
+  // 같은 방식) — 그 그룹을 여기 모아 뒀다가 createWorld가 로드 완료 후 순회한다.
+  const barricadePending = [];
 
   for (let i = 1; i < routeNames.length - 1; i++) {
     const zone = nodeZone(routeNames[i]);
     if (!zone) continue;
     const centerS = nodeS(i);
+    // 미리 알려주는 폭(BARR_LEAD_SEC·TL_HALF_SEC + 6)이 바로 앞 구간보다 길면
+    // 안내 s가 앞 노드(갈림길 등)보다 먼저 새어나가 안내 순서가 뒤바뀐다 —
+    // 예: N4→T4는 14.7유닛인데 신호등 사전 안내 폭은 18유닛이라, 클램프가
+    // 없으면 T4 안내가 N4의 갈림길 안내보다 먼저 떴다(모든 경로에서 재현,
+    // docs/map/맵 시간 배분.md §4-1과 대조해 확인). nodeS(i-1)을 하한으로 둔다.
+    //
+    // 하한을 nodeS(i-1) 그대로 쓰면 앞 노드가 실제 갈림길(computeTurnHints의
+    // turn 항목)일 때 두 안내의 s가 정확히 같아진다 — update()의 전진 판정은
+    // prevS < front.s && s >= front.s라서, s가 같은 두 항목 중 앞엣것이 그
+    // 지점을 지나가는 순간 뒤엣것은 이미 prevS >= front.s인 채로 front가 되어
+    // 영원히 그 조건을 못 만족한다. 그러면 안내 큐 전체가 거기서 멈춘다 —
+    // T4 뒤의 B7, C3 뒤의 B8 안내가 통째로 안 뜨던 원인이 이것이었다(update()의
+    // announced/resolved 전이를 그대로 시뮬레이션해서 재현·확인). +1로 반드시
+    // 앞 노드보다 뒤에 오게 한다.
+    const navFloor = nodeS(i - 1) + 1;
 
     if (zone === "C") {
       const lane = Math.floor(Math.random() * 3);
       const barrS = centerS - durationToDistance(ZONE_SEC) / 2; // 공사장 출구
-      const mesh = buildBarricadeMesh(segments, barrS, lane, barrMat);
+      const mesh = buildBarricadeGroup(segments, barrS, lane);
       scene.add(mesh);
+      barricadePending.push(mesh);
       events.push({ type: "C", lane, centerS, barrS, mesh, risen: 0 });
       navHints.push({
         kind: "construction",
-        s: centerS - durationToDistance(BARR_LEAD_SEC) - 6,
+        s: Math.max(centerS - durationToDistance(BARR_LEAD_SEC) - 6, navFloor),
         arrow: "⚠",
         text: `주의!! ${LANE_NAME[lane]} 공사 중`,
         lane, // phone.pushMap(event)이 event.lane으로 읽는다 — 막힌(피해야 할) 차선
@@ -1111,6 +1221,20 @@ function createEvents(scene, routeNames, segments, totalLength) {
         bodyMat,
         headMat,
       );
+      // 이 구역엔 패널티용 군중이 이미 서 있다 — 지도 전체에 흩뿌리는 랜덤 배치
+      // 행인이 그 위에 겹쳐 나오면 사람이 몰려 보이고 충돌 판정도 꼬인다. 갇힘
+      // 판정 구간(startS~endS)과 같은 반경(half)으로 이 구역만 생성 금지시킨다 —
+      // 다른 구역의 랜덤 행인은 건드리지 않는다.
+      const road = findPedRoad(pedRoads, routeNames[i]);
+      if (road) {
+        const centerPt = pointAtArcLength(segments, centerS, 0);
+        addSpawnBlock(
+          spawnBlocks,
+          road,
+          nearestArcLength(road.segs, centerPt.x, centerPt.z),
+          half,
+        );
+      }
       events.push({
         type: "T",
         safeLane,
@@ -1125,56 +1249,30 @@ function createEvents(scene, routeNames, segments, totalLength) {
       });
       navHints.push({
         kind: "traffic",
-        s: startS - 6,
+        s: Math.max(startS - 6, navFloor),
         arrow: "↑",
         text: `${LANE_NAME[safeLane]}로 건너기`,
         lane: safeLane, // phone.pushMap(event)이 event.lane으로 읽는다 — 건너야 할(안전한) 차선
       });
     }
   }
-  return { events, navHints };
+  return { events, navHints, barricadePending };
 }
 
-// 바리게이트 판 — 차선 폭만큼 도로를 가로막는 세로 판. X·Z는 월드로 미리 굽고
-// (해당 차선 위치), 처음엔 지하(position.y = -BARR_H)에 숨겼다가 y만 올려 등장시킨다.
-function buildBarricadeMesh(segments, barrS, lane, mat) {
+// 바리게이트 자리 — 차선 폭 중앙에 빈 그룹만 세운다(위치·회전). barricade.glb는
+// 비동기로 로드되므로 모델은 없이 시작하고, loadBarricadeUnit이 끝나면
+// createWorld가 이 그룹에 clone을 붙인다(barricadePending). 처음엔 지하
+// (position.y = -BARR_H)에 숨겼다가 y만 올려 등장시키는 것은 그대로다 — 그룹도
+// Object3D라 애니메이션 코드가 손 안 대고 그대로 동작한다.
+function buildBarricadeGroup(segments, barrS, lane) {
   const c = pointAtArcLength(segments, barrS, 0);
   const perp = perpVec(segHeadingAt(segments, barrS));
   const cx = c.x + perp.x * LANE_X[lane],
     cz = c.z + perp.z * LANE_X[lane];
-  const w = LANE_HALF * 0.95;
-  const p0 = [cx - perp.x * w, cz - perp.z * w],
-    p1 = [cx + perp.x * w, cz + perp.z * w];
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute(
-    "position",
-    new THREE.BufferAttribute(
-      new Float32Array([
-        p0[0],
-        0,
-        p0[1],
-        p1[0],
-        0,
-        p1[1],
-        p1[0],
-        BARR_H,
-        p1[1],
-        p0[0],
-        BARR_H,
-        p0[1],
-      ]),
-      3,
-    ),
-  );
-  geo.setAttribute(
-    "uv",
-    new THREE.BufferAttribute(new Float32Array([0, 0, 3, 0, 3, 1, 0, 1]), 2),
-  );
-  geo.setIndex([0, 1, 2, 0, 2, 3]);
-  geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.y = -BARR_H; // 지하에 숨겨 둔다
-  return mesh;
+  const group = new THREE.Group();
+  group.position.set(cx, -BARR_H, cz); // 지하에 숨겨 둔다
+  group.rotation.y = Math.atan2(-perp.z, perp.x); // 로컬 +X를 perp(차선을 가로지르는) 방향으로
+  return group;
 }
 
 // 신호등 군중 — 노란 벽(시각 구역, zoneStartS)을 기준으로 가로 2줄(줄마다 세
@@ -1368,6 +1466,12 @@ function computeTurnHints(waypoints, names) {
       [x1, z1] = waypoints[i],
       [x2, z2] = waypoints[i + 1];
     acc += Math.hypot(x1 - x0, z1 - z0);
+    // 건물(B7 제외) 안쪽 노드는 실제 갈림길이 아니다. buildingPlacement 주석이
+    // 말하듯 B8처럼 이웃 노드 두 개가 일직선이 아니면 물리적으로는 꺾이지만,
+    // 그건 건물 상자가 도로 방향에 맞춰 꺾인 것일 뿐 유저가 고를 다른 길이
+    // 없다 — 게이트 안내만으로 충분하다. docs/map/맵 시간 배분.md §4-1의 9개
+    // 경로 어디에도 건물 안 갈림길 안내가 없는데 B8만 새고 있었다.
+    if (/^B\d+$/.test(names[i]) && NODE_DEGREE[names[i]] < 3) continue;
     const h0 = Math.atan2(z1 - z0, x1 - x0),
       h1 = Math.atan2(z2 - z1, x2 - x1);
     let diff = h1 - h0;
@@ -1376,8 +1480,8 @@ function computeTurnHints(waypoints, names) {
     if (Math.abs(diff) < 0.2) {
       // 거의 직진이면 방향은 안 꺾인다 — 다만 여기가 실제 갈림길(차수 3 이상)
       // 이면 유저는 화면에서 다른 길도 보고 있으므로, 직진도 안내해야 헷갈리지
-      // 않는다(요구사항). 차수 2 이하(T/C 표지·건물 통과 등 갈림길이 아닌 지점)는
-      // 계속 건너뛴다.
+      // 않는다(요구사항). 차수 2 이하(T/C 표지 등 갈림길이 아닌 지점)는 계속
+      // 건너뛴다.
       if (NODE_DEGREE[names[i]] >= 3) hints.push({ s: acc, dir: "straight" });
       continue;
     }
@@ -1867,18 +1971,33 @@ function computeGateEvents(placements, routeNames, segments) {
 // 경로(waypoints, clampToRoad에서 씀)뿐이지만 겉모습은 구분하지 않는다.
 // 건물·신호등·공사장 없음. 이음매는 offsetDirs로 마이터 처리한다. ────
 function buildCityRoads(scene) {
-  const groundMat = new THREE.MeshBasicMaterial({ color: COLOR.ground });
+  // 도로 바닥(floor/floor2)과 같은 방식(줄무늬 텍스처) — "잔디를 깔아 둔" 느낌만
+  // 내는 것이 목적이라 무늬는 도로와 같게, 색만 초록으로 바꿨다.
+  // side: DoubleSide — 이 사각형은 항상 같은 정점 순서(min→max)를 쓰기 때문에
+  // 카메라가 위에서 내려다볼 때 뒷면이 걸려 컬링되어 안 보이던 문제가 있었다
+  // (그동안 "바닥이 파랗게 보인다"는 게 사실 이 사각형이 아예 안 그려지고 배경색이
+  // 그대로 비친 것이었다) — wallMat과 같은 방식으로 양면을 그려 해결한다.
+  const groundMat = new THREE.MeshBasicMaterial({
+    map: stripeTexture(COLOR.ground, COLOR.ground2),
+    side: THREE.DoubleSide,
+  });
 
   const xs = Object.values(N).map((p) => p[0]),
     zs = Object.values(N).map((p) => p[1]);
   const pad = 20;
+  const groundMinZ = Math.min(...zs) - pad,
+    groundMaxZ = Math.max(...zs) + pad;
+  // 도로 줄무늬와 같은 주기(6유닛)로 반복시킨다 — 땅 전체가 하나의 거대한 사각형이라
+  // 반복 없이 늘리면(vRepeat=1) 줄무늬가 안 보일 만큼 늘어나 버린다.
+  const groundVRepeat = Math.max(1, (groundMaxZ - groundMinZ) / 6);
   scene.add(
     new THREE.Mesh(
       quadGeometry(
-        [Math.min(...xs) - pad, 0, Math.min(...zs) - pad],
-        [Math.max(...xs) + pad, 0, Math.min(...zs) - pad],
-        [Math.max(...xs) + pad, 0, Math.max(...zs) + pad],
-        [Math.min(...xs) - pad, 0, Math.max(...zs) + pad],
+        [Math.min(...xs) - pad, 0, groundMinZ],
+        [Math.max(...xs) + pad, 0, groundMinZ],
+        [Math.max(...xs) + pad, 0, groundMaxZ],
+        [Math.min(...xs) - pad, 0, groundMaxZ],
+        groundVRepeat,
       ),
       groundMat,
     ),
@@ -1906,12 +2025,9 @@ function buildCityRoads(scene) {
       }),
     },
     C: {
+      // 벽은 이제 fence2.glb(아래 cFenceSegments)라서 색 구분이 없다 — floor만 남는다.
       floor: new THREE.MeshBasicMaterial({
         map: stripeTexture(COLOR.cFloor, COLOR.cFloor2),
-      }),
-      wall: new THREE.MeshBasicMaterial({
-        map: stripeTexture(COLOR.cWall, COLOR.cWall2),
-        side: THREE.DoubleSide,
       }),
     },
     lane: new THREE.MeshBasicMaterial({
@@ -1928,9 +2044,249 @@ function buildCityRoads(scene) {
   // 이어붙여서, 실제 갈림길(차수 3 이상)에서만 벽을 물리게 한다.
   const junctions = computeJunctions(ROADS); // 차수 3 이상 = 진짜 갈림길
   const logicalRoads = mergeStraightRoads(ROADS);
+  // 일반(S) 구간의 벽 선분만 여기 모은다 — fence.glb는 비동기로 로드되므로,
+  // 동기 패스에서는 T/C(이벤트 색 구분)·건물(buildBuildings) 벽만 즉시 그리고
+  // 나머지는 모델이 준비된 뒤 한 번에 붙인다.
+  const fenceSegments = [];
   logicalRoads.forEach((road, i) => {
-    buildRoadStrip(scene, road, mats, junctions, i);
+    buildRoadStrip(scene, road, mats, junctions, i, fenceSegments);
   });
+  loadFenceUnit()
+    .then((unit) => {
+      for (const [p0, p1] of fenceSegments)
+        buildFenceSegment(scene, unit, p0, p1);
+    })
+    .catch((err) => {
+      console.error("fence.glb 로드 실패 — 일반 도로 벽이 비어 보인다", err);
+    });
+
+  loadTreeUnit()
+    .then((unit) => {
+      scatterTrees(scene, unit, xs, zs, pad);
+    })
+    .catch((err) => {
+      console.error("tree.glb 로드 실패 — 잔디에 나무가 안 심긴다", err);
+    });
+}
+
+// ── 도로 경계(일반 S + 공사장 C 공용) — fence.glb ─────────────
+// assets/map/fence2.glb를 한 번만 로드해 재사용한다(요구사항: 매번 새로 로드하지
+// 않는다). index.html이 저장소 루트라 경로는 그 기준 상대경로(./)를 쓴다 —
+// import 문과 달리 런타임 로더 경로는 모듈 파일이 아니라 문서 기준이다.
+const FENCE_MODEL_URL = "./assets/map/fence2.glb";
+// CEIL(3.0, 예전 벽 높이)에 맞춰 키우면 원본 비례가 깨진다 — 눈대중으로 맞춘
+// 고정 목표 높이로 스케일한다.
+const FENCE_TARGET_HEIGHT = 0.9;
+let fenceUnitPromise = null;
+
+function loadFenceUnit() {
+  if (!fenceUnitPromise) {
+    fenceUnitPromise = new Promise((resolve, reject) => {
+      new GLTFLoader().load(
+        FENCE_MODEL_URL,
+        (gltf) => {
+          const raw = gltf.scene;
+          const box = new THREE.Box3().setFromObject(raw);
+          const width = box.max.x - box.min.x; // 패널 하나의 길이 방향(로컬 X) 폭
+          const height = box.max.y - box.min.y;
+          // 로컬 원점을 시작 모서리(x=0)·바닥(y=0)·두께 중앙(z=0)으로 옮겨 둔다 —
+          // 그래야 벽을 이어 붙일 때 "패널 폭만큼 이동"으로 계산이 끝난다.
+          raw.position.set(
+            -box.min.x,
+            -box.min.y,
+            -(box.min.z + box.max.z) / 2,
+          );
+          const unit = new THREE.Group();
+          unit.add(raw);
+          resolve({ unit, width, height });
+        },
+        undefined,
+        reject,
+      );
+    });
+  }
+  return fenceUnitPromise;
+}
+
+// 기존 벽 선분(p0→p1, 바닥 y=0) 하나를 fence.glb 패널로 이어 붙인다. 높이는
+// CEIL이 아니라 FENCE_TARGET_HEIGHT(턱 정도)에 맞춰 균일 스케일하고, 패널
+// 개수×폭이 구간 길이와 정확히 같아지도록 길이 방향(로컬 X)만 따로 늘이거나
+// 줄인다 — 이음매에 틈·겹침이 남지 않는다. 매번 새로 로드하지 않고
+// loadFenceUnit이 한 번 만든 unit을 clone(true)만 해서 쓴다(지오메트리·재질은
+// 참조 공유, three.js 권장 재사용 방식).
+function buildFenceSegment(scene, fenceUnit, p0, p1) {
+  const dx = p1[0] - p0[0],
+    dz = p1[1] - p0[1];
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-6 || fenceUnit.width < 1e-6 || fenceUnit.height < 1e-6) return;
+  const heightScale = FENCE_TARGET_HEIGHT / fenceUnit.height;
+  const panelWidth0 = fenceUnit.width * heightScale;
+  const panelCount = Math.max(1, Math.round(len / panelWidth0));
+  const panelLen = len / panelCount;
+  const scaleX = panelLen / fenceUnit.width;
+  const heading = Math.atan2(-dz, dx); // three.js rotation.y 부호 — 로컬 +X를 (dx,dz) 방향으로
+  const ux = dx / len,
+    uz = dz / len;
+  for (let k = 0; k < panelCount; k++) {
+    const t = k * panelLen;
+    const clone = fenceUnit.unit.clone(true);
+    clone.position.set(p0[0] + ux * t, 0, p0[1] + uz * t);
+    clone.rotation.y = heading;
+    clone.scale.set(scaleX, heightScale, heightScale);
+    scene.add(clone);
+  }
+}
+
+// ── 잔디 위 나무 — tree.glb ─────────────────────
+// assets/map/tree.glb를 한 번만 로드해 재사용한다. 원본 재질은 하나뿐이고 색이
+// 없어(흰색) 그대로 쓰면 나무가 새하얗게 나온다 — 노드 이름(줄기/잎*)으로
+// 부위를 구분해 코드에서 새 색을 입힌다.
+const TREE_MODEL_URL = "./assets/map/tree.glb";
+const TREE_TARGET_HEIGHT = 3.0; // CEIL(기존 벽 높이)과 비슷한 눈대중 높이
+let treeUnitPromise = null;
+
+function loadTreeUnit() {
+  if (!treeUnitPromise) {
+    treeUnitPromise = new Promise((resolve, reject) => {
+      new GLTFLoader().load(
+        TREE_MODEL_URL,
+        (gltf) => {
+          const raw = gltf.scene;
+          raw.traverse((child) => {
+            if (!child.isMesh) return;
+            const isTrunk = child.name === "줄기";
+            child.material = new THREE.MeshStandardMaterial({
+              color: isTrunk ? COLOR.treeTrunk : COLOR.treeLeaf,
+              side: THREE.DoubleSide,
+            });
+          });
+          const box = new THREE.Box3().setFromObject(raw);
+          const height = box.max.y - box.min.y;
+          // 로컬 원점을 밑동 바닥(y=0)·수평 중심으로 옮겨 둔다 — 심을 때
+          // "그 좌표에 놓기"만으로 끝나게.
+          raw.position.set(
+            -(box.min.x + box.max.x) / 2,
+            -box.min.y,
+            -(box.min.z + box.max.z) / 2,
+          );
+          const unit = new THREE.Group();
+          unit.add(raw);
+          resolve({ unit, height });
+        },
+        undefined,
+        reject,
+      );
+    });
+  }
+  return treeUnitPromise;
+}
+
+// 도로망 바깥(잔디) 전체에 나무를 흩어 심는다. buildCityRoads가 그리는 도로는
+// 선택된 경로뿐 아니라 ROADS 전체이므로(§buildCityRoads 주석), 나무도 ROADS
+// 전체 선분에서 떨어뜨려 놓아야 도로 위에 심기지 않는다. 나무끼리도 최소
+// 간격을 둔다. clone(true)만 반복해서 쓰고 tree.glb를 다시 로드하지 않는다.
+function scatterTrees(scene, treeUnit, xs, zs, pad) {
+  if (treeUnit.height < 1e-6) return;
+  const roadSegs = [];
+  for (const road of ROADS) roadSegs.push(...toSegments(road.map(pt)));
+
+  const minX = Math.min(...xs) - pad,
+    maxX = Math.max(...xs) + pad;
+  const minZ = Math.min(...zs) - pad,
+    maxZ = Math.max(...zs) + pad;
+  const TREE_CLEAR = ROAD_HALF + 1.5; // 도로에서 이만큼은 비워 둔다(건물도 도로 폭과 비슷해 같이 걸러진다)
+  const TREE_MIN_GAP = 4; // 나무끼리 최소 간격
+  const TREE_COUNT = 90; // "여러 곳" 목표 개수 — 후보가 부족하면 그보다 적게 심긴다
+  const MAX_TRY = TREE_COUNT * 25;
+
+  function distToRoads(x, z) {
+    let best = Infinity;
+    for (const seg of roadSegs) {
+      const dx = seg.x1 - seg.x0,
+        dz = seg.z1 - seg.z0;
+      const len2 = dx * dx + dz * dz;
+      const t =
+        len2 > 0
+          ? clamp(((x - seg.x0) * dx + (z - seg.z0) * dz) / len2, 0, 1)
+          : 0;
+      const cx = seg.x0 + dx * t,
+        cz = seg.z0 + dz * t;
+      const d = Math.hypot(x - cx, z - cz);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  const placed = [];
+  let tries = 0;
+  const baseScale = TREE_TARGET_HEIGHT / treeUnit.height;
+  while (placed.length < TREE_COUNT && tries < MAX_TRY) {
+    tries++;
+    const x = minX + Math.random() * (maxX - minX);
+    const z = minZ + Math.random() * (maxZ - minZ);
+    if (distToRoads(x, z) < TREE_CLEAR) continue;
+    if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < TREE_MIN_GAP))
+      continue;
+    placed.push({ x, z });
+    const clone = treeUnit.unit.clone(true);
+    clone.position.set(x, 0, z);
+    clone.rotation.y = Math.random() * Math.PI * 2; // 방향 제약이 없으니 무작위로 세워도 된다
+    clone.scale.setScalar(baseScale * (0.8 + Math.random() * 0.5)); // 크기를 살짝 섞어 자연스럽게
+    scene.add(clone);
+  }
+}
+
+// ── 공사장 바리게이트 — barricade.glb ─────────────────
+// 한 번만 로드해 재사용한다. 원본 재질 3개(검정/주황/하양, material 0/1/2)에
+// 색이 없어 그대로 쓰면 흰색이 된다 — 큐브 이름(검정/주황/하양) 그대로 색만
+// 입힌다(요구사항). 주황은 COLOR.barricadeOrange로 최대한 채도 높게 잡았다.
+const BARRICADE_MODEL_URL = "./assets/map/barricade.glb";
+const BARRICADE_PART_COLOR = {
+  검정: COLOR.barricadeBlack,
+  주황: COLOR.barricadeOrange,
+  하양: COLOR.barricadeWhite,
+};
+let barricadeUnitPromise = null;
+
+function loadBarricadeUnit() {
+  if (!barricadeUnitPromise) {
+    barricadeUnitPromise = new Promise((resolve, reject) => {
+      new GLTFLoader().load(
+        BARRICADE_MODEL_URL,
+        (gltf) => {
+          const raw = gltf.scene;
+          raw.traverse((child) => {
+            if (!child.isMesh) return;
+            // GLTFLoader는 같은 이름(검정/주황/하양)이 여럿이면 "이름_1", "이름_2"…로
+            // 고유화한다 — 뒤에 붙는 번호를 떼고 원래 큐브 이름으로 찾는다.
+            const partName = child.name.replace(/_\d+$/, "");
+            const color = BARRICADE_PART_COLOR[partName];
+            if (color === undefined) return;
+            child.material = new THREE.MeshStandardMaterial({
+              color,
+              side: THREE.DoubleSide,
+            });
+          });
+          const box = new THREE.Box3().setFromObject(raw);
+          const width = box.max.x - box.min.x;
+          const height = box.max.y - box.min.y;
+          // 로컬 원점을 폭 중앙·바닥(y=0)으로 옮겨 둔다 — 차선 중앙에 그대로
+          // 놓이고, 세로로만 자연스럽게 늘어나게(buildBarricadeGroup 참고).
+          raw.position.set(
+            -(box.min.x + box.max.x) / 2,
+            -box.min.y,
+            -(box.min.z + box.max.z) / 2,
+          );
+          const unit = new THREE.Group();
+          unit.add(raw);
+          resolve({ unit, width, height });
+        },
+        undefined,
+        reject,
+      );
+    });
+  }
+  return barricadeUnitPromise;
 }
 
 function computeJunctions(roads) {
@@ -2017,7 +2373,7 @@ function expandZones(names, waypoints) {
   return { pts, segType };
 }
 
-function buildRoadStrip(scene, names, mats, junctions, roadIdx) {
+function buildRoadStrip(scene, names, mats, junctions, roadIdx, fenceSegments) {
   const endName0 = names[0],
     endName1 = names[names.length - 1];
   const { pts: waypoints, segType } = expandZones(names, names.map(pt));
@@ -2079,21 +2435,24 @@ function buildRoadStrip(scene, names, mats, junctions, roadIdx) {
     const [wx0, wz0] = wallBase[i],
       [wx1, wz1] = wallBase[i + 1];
     for (const side of [-1, 1]) {
+      const p0 = [wx0 + d0.x * ROAD_HALF * side, wz0 + d0.z * ROAD_HALF * side];
+      const p1 = [wx1 + d1.x * ROAD_HALF * side, wz1 + d1.z * ROAD_HALF * side];
+      // 일반(S)·공사장(C) 구간은 fence.glb로 대체한다 — 요구사항: 공사장 벽의
+      // 색 구분을 없앤다(일반 벽과 완전히 같은 모델·색). T는 신호등 색 구분이
+      // 기능이라 기존 벽(quad)을 그대로 둔다. 충돌은 이 메시와 무관하게
+      // ROAD_HALF로만 계산되므로(clampToRoad) 시각 교체가 충돌 판정에 영향을
+      // 주지 않는다.
+      if (segType[i] === "S" || segType[i] === "C") {
+        fenceSegments.push([p0, p1]);
+        continue;
+      }
       scene.add(
         new THREE.Mesh(
           quadGeometry(
-            [wx0 + d0.x * ROAD_HALF * side, 0, wz0 + d0.z * ROAD_HALF * side],
-            [
-              wx0 + d0.x * ROAD_HALF * side,
-              CEIL,
-              wz0 + d0.z * ROAD_HALF * side,
-            ],
-            [
-              wx1 + d1.x * ROAD_HALF * side,
-              CEIL,
-              wz1 + d1.z * ROAD_HALF * side,
-            ],
-            [wx1 + d1.x * ROAD_HALF * side, 0, wz1 + d1.z * ROAD_HALF * side],
+            [p0[0], 0, p0[1]],
+            [p0[0], CEIL, p0[1]],
+            [p1[0], CEIL, p1[1]],
+            [p1[0], 0, p1[1]],
             vRepeat,
           ),
           wallMat,
@@ -2166,19 +2525,6 @@ function crosswalkTexture() {
   return finishTexture(cnv);
 }
 
-// 바리게이트 경고 줄무늬(주황/검정 세로줄).
-function barricadeTexture() {
-  const cnv = document.createElement("canvas");
-  cnv.width = 4;
-  cnv.height = 1;
-  const ctx = cnv.getContext("2d");
-  for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = hexColor(i % 2 ? COLOR.barricade2 : COLOR.barricade);
-    ctx.fillRect(i, 0, 1, 1);
-  }
-  return finishTexture(cnv);
-}
-
 function dashTexture(color) {
   const cnv = document.createElement("canvas");
   cnv.width = 1;
@@ -2207,8 +2553,9 @@ function buildToast(container) {
   // index.html의 #stage{position:fixed;inset:0}를 인라인 스타일이 덮어써서
   // 캔버스 크기 계산이 깨진다(실제로 겪은 버그).
   const el = document.createElement("div");
+  // top:44px — 상단 중앙의 부스터 게이지 바(top:16, 높이 14)와 겹치지 않게 그 아래에 둔다.
   el.style.cssText = `
-    position:fixed; top:24px; left:50%; transform:translate(-50%,-8px);
+    position:fixed; top:44px; left:50%; transform:translate(-50%,-8px);
     display:flex; align-items:center; gap:10px; padding:10px 20px;
     background:rgba(27,29,33,0.82); color:#fff; border-radius:10px;
     font:600 15px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
