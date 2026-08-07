@@ -140,17 +140,11 @@ const COLOR = {
   ground2: 0x86b42b, // 잔디 줄무늬(약간 진한 연두) — floor/floor2와 같은 방식
   floor: 0xedeff2,
   floor2: 0xe6e9ed,
-  wall: 0xb7c2cc,
-  wall2: 0xa9b5c0,
   lane: 0xc9d1d9,
   gate: 0x5c6470, // 게이트 기둥·상판과 건물 상자를 전부 이 색 하나로 — "색깔을 똑같게"
-  // 신호등(T)·공사장(C) — 이동 방식은 일반 도로와 같고 색만 다르게 해서 구분한다.
-  // 아직 이벤트는 없다(맵·길 형태 검증 단계). 타입은 유지한다.
-  tFloor: 0xf6e0a3, // T 신호등 — 노랑 계열
-  tFloor2: 0xf0d488,
-  tWall: 0xe6c657,
-  tWall2: 0xd8b845,
-  cFloor: 0xf5c9a0, // C 공사장 바닥 — 주황 계열(벽은 fence2.glb로 바뀌어 구분색 없앰)
+  // 신호등(T) 바닥은 횡단보도 텍스처, 벽은 없앴다(도시 거리와 트이게) → 색 상수 불필요.
+  // 공사장(C) 바닥만 주황으로 구분한다(벽은 fence2.glb라 구분색 없음).
+  cFloor: 0xf5c9a0, // C 공사장 바닥 — 주황 계열
   cFloor2: 0xf0b986,
   ped: 0x7c848e, // 행인 몸통 — prototype 그대로
   pedHead: 0x69717b, // 행인 머리 — prototype 그대로
@@ -162,7 +156,23 @@ const COLOR = {
   // barricade.glb 큐브 이름(검정/주황/하양) 그대로 색만 입힌다 — 요구사항: 주황은 최대한 쨍하게.
   barricadeBlack: 0x2e2e2e,
   barricadeOrange: 0xf57c00,
-  barricadeWhite: 0x2f2f2f,
+  barricadeWhite: 0xfefefe,
+  // ── 배경 도시 꾸미기 — docs/map/맵분위기.png의 추천 팔레트 그대로. office/light/
+  // flowerBed 에셋도 tree.glb처럼 원본 재질에 색이 없어(흰색) 노드 이름으로 여기 색을 입힌다.
+  bldgWall: 0xe6e8ec, // 외벽
+  bldgAccent: 0xb8bec8, // 외벽포인트 — 외벽보다 살짝 진하게
+  bldgRoof: 0xc7ccd3, // 옥상·옥상장식품
+  bldgWin: 0xb8e6fa, // 창문(밝게)
+  bldgWinBar: 0x9fd8f6, // 창문구분선(창틀 기둥)
+  bldgDoor: 0x7d7985, // 입구(문)
+  bldgAwning: 0xd1d3d7, // 차양 — 상가 포인트(주황/빨강 계열)
+  bldgSign: 0xf7e19e, // 가게 간판
+  potBody: 0x9a6a3c, // 장식용 화분
+  potPlant: 0x7bc96f, // 화분 식물
+  lampPole: 0x666666, // 가로등 기둥
+  lampBulb: 0xffe9a8, // 가로등 전구
+  flowerBed: 0x8ed081, // 화단(관상풀)
+  treeBase: 0x6f9e3a, // tree2의 밑동 바닥(관목 흙/풀)
 };
 
 // ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
@@ -2004,28 +2014,21 @@ function buildCityRoads(scene) {
   );
 
   // 일반 도로(S)와 T·C 구간의 바닥·벽 재질. 구조는 전부 같고 색만 다르다.
+  // 벽(연석)은 S·C 모두 fence2.glb로 세우고 T는 벽이 없어졌다 — 이제 타입별로
+  // 다른 건 바닥 재질뿐이다.
   const mats = {
     S: {
       floor: new THREE.MeshBasicMaterial({
         map: stripeTexture(COLOR.floor, COLOR.floor2),
       }),
-      wall: new THREE.MeshBasicMaterial({
-        map: stripeTexture(COLOR.wall, COLOR.wall2),
-        side: THREE.DoubleSide,
-      }),
     },
     T: {
-      // 신호등 구역 바닥은 횡단보도(검정/흰 줄무늬). 벽은 신호 노랑을 유지한다.
+      // 신호등 구역 바닥은 횡단보도(검정/흰 줄무늬).
       floor: new THREE.MeshBasicMaterial({
         map: crosswalkTexture(),
       }),
-      wall: new THREE.MeshBasicMaterial({
-        map: stripeTexture(COLOR.tWall, COLOR.tWall2),
-        side: THREE.DoubleSide,
-      }),
     },
     C: {
-      // 벽은 이제 fence2.glb(아래 cFenceSegments)라서 색 구분이 없다 — floor만 남는다.
       floor: new THREE.MeshBasicMaterial({
         map: stripeTexture(COLOR.cFloor, COLOR.cFloor2),
       }),
@@ -2060,13 +2063,9 @@ function buildCityRoads(scene) {
       console.error("fence.glb 로드 실패 — 일반 도로 벽이 비어 보인다", err);
     });
 
-  loadTreeUnit()
-    .then((unit) => {
-      scatterTrees(scene, unit, xs, zs, pad);
-    })
-    .catch((err) => {
-      console.error("tree.glb 로드 실패 — 잔디에 나무가 안 심긴다", err);
-    });
+  // 잔디(도로망 바깥)를 도시처럼 꾸민다 — 건물·가로등·화단·나무. 도로 좌표 범위를
+  // 그대로 넘겨 배치 경계로 쓴다(fence.glb와 별개의 비동기 로드).
+  decorateGrass(scene, xs, zs, pad);
 }
 
 // ── 도로 경계(일반 S + 공사장 C 공용) — fence.glb ─────────────
@@ -2137,33 +2136,80 @@ function buildFenceSegment(scene, fenceUnit, p0, p1) {
   }
 }
 
-// ── 잔디 위 나무 — tree.glb ─────────────────────
-// assets/map/tree.glb를 한 번만 로드해 재사용한다. 원본 재질은 하나뿐이고 색이
-// 없어(흰색) 그대로 쓰면 나무가 새하얗게 나온다 — 노드 이름(줄기/잎*)으로
-// 부위를 구분해 코드에서 새 색을 입힌다.
-const TREE_MODEL_URL = "./assets/map/tree.glb";
-const TREE_TARGET_HEIGHT = 3.0; // CEIL(기존 벽 높이)과 비슷한 눈대중 높이
-let treeUnitPromise = null;
+// ── 배경 도시 꾸미기 — office/light/flowerBed/tree 에셋 ─────────────
+// docs/map/맵분위기.png의 "배치 아이디어"를 따른다: 도로를 따라 건물을 늘어세우고
+// 그 사이를 가로등·화단·나무로 채워 리듬을 준다. 새 에셋도 tree.glb처럼 원본 재질에
+// 색이 없어(흰색) 노드 이름으로 팔레트 색을 입힌다. fence*/barricade는 배경 장식에
+// 쓰지 않는다(도로 연석 전용) — 요구사항.
+//
+// 한 URL당 한 번만 로드해 clone(true)로 재사용한다(three.js 권장). 로컬 원점은
+// 밑동 바닥(y=0)·수평 중심으로 옮겨, 배치할 땐 "그 좌표에 놓기"만으로 끝나게 한다.
+const OFFICE_URLS = [
+  "./assets/map/office1.glb",
+  "./assets/map/office2.glb",
+  "./assets/map/office3.glb",
+];
+const LIGHT_URL = "./assets/map/light.glb";
+const FLOWERBED_URLS = [
+  "./assets/map/flowerBed1.glb",
+  "./assets/map/flowerBed2.glb",
+  "./assets/map/flowerBed3.glb",
+];
+// tree.glb(기존)와 새 변종 3종을 섞어 심어 단조로움을 줄인다.
+const TREE_URLS = [
+  "./assets/map/tree.glb",
+  "./assets/map/tree2.glb",
+  "./assets/map/tree3.glb",
+  "./assets/map/tree4.glb",
+];
 
-function loadTreeUnit() {
-  if (!treeUnitPromise) {
-    treeUnitPromise = new Promise((resolve, reject) => {
+// 노드 이름 → 팔레트 색. GLTFLoader가 같은 이름을 "이름_1"처럼 고유화하므로 숫자
+// 꼬리를 떼고 찾는다(barricade와 같은 방식). 표에 없는 이름은 회색 기본값이 된다.
+const OFFICE_PART_COLOR = {
+  외벽: COLOR.bldgWall,
+  외벽포인트: COLOR.bldgAccent,
+  옥상: COLOR.bldgRoof,
+  옥상장식품: COLOR.bldgRoof,
+  창문: COLOR.bldgWin,
+  창문구분선: COLOR.bldgWinBar,
+  입구: COLOR.bldgDoor,
+  차양: COLOR.bldgAwning,
+  가게간판: COLOR.bldgSign,
+  장식용화분: COLOR.potBody,
+  장식용화분식물: COLOR.potPlant,
+};
+const LIGHT_PART_COLOR = { 가로등: COLOR.lampPole, 전구: COLOR.lampBulb };
+const FLOWERBED_PART_COLOR = { 관상풀: COLOR.flowerBed };
+// tree 변종들이 쓰는 이름을 모두 합쳐 둔다(줄기/잎 계열 + tree2의 바닥).
+const TREE_PART_COLOR = {
+  줄기: COLOR.treeTrunk,
+  잎: COLOR.treeLeaf,
+  잎2: COLOR.treeLeaf,
+  잎3: COLOR.treeLeaf,
+  나무줄기: COLOR.treeTrunk,
+  "나무 줄기": COLOR.treeTrunk,
+  나무잎: COLOR.treeLeaf,
+  바닥: COLOR.treeBase,
+};
+
+const modelUnitCache = {};
+function loadModelUnit(url, partColor) {
+  if (!modelUnitCache[url]) {
+    modelUnitCache[url] = new Promise((resolve, reject) => {
       new GLTFLoader().load(
-        TREE_MODEL_URL,
+        url,
         (gltf) => {
           const raw = gltf.scene;
           raw.traverse((child) => {
             if (!child.isMesh) return;
-            const isTrunk = child.name === "줄기";
+            const name = child.name.replace(/_\d+$/, "");
+            const color = partColor[name];
             child.material = new THREE.MeshStandardMaterial({
-              color: isTrunk ? COLOR.treeTrunk : COLOR.treeLeaf,
+              color: color !== undefined ? color : 0xcfd4da,
               side: THREE.DoubleSide,
             });
           });
           const box = new THREE.Box3().setFromObject(raw);
-          const height = box.max.y - box.min.y;
-          // 로컬 원점을 밑동 바닥(y=0)·수평 중심으로 옮겨 둔다 — 심을 때
-          // "그 좌표에 놓기"만으로 끝나게.
           raw.position.set(
             -(box.min.x + box.max.x) / 2,
             -box.min.y,
@@ -2171,33 +2217,34 @@ function loadTreeUnit() {
           );
           const unit = new THREE.Group();
           unit.add(raw);
-          resolve({ unit, height });
+          resolve({
+            unit,
+            width: box.max.x - box.min.x,
+            height: box.max.y - box.min.y,
+            depth: box.max.z - box.min.z,
+          });
         },
         undefined,
         reject,
       );
     });
   }
-  return treeUnitPromise;
+  return modelUnitCache[url];
 }
 
-// 도로망 바깥(잔디) 전체에 나무를 흩어 심는다. buildCityRoads가 그리는 도로는
-// 선택된 경로뿐 아니라 ROADS 전체이므로(§buildCityRoads 주석), 나무도 ROADS
-// 전체 선분에서 떨어뜨려 놓아야 도로 위에 심기지 않는다. 나무끼리도 최소
-// 간격을 둔다. clone(true)만 반복해서 쓰고 tree.glb를 다시 로드하지 않는다.
-function scatterTrees(scene, treeUnit, xs, zs, pad) {
-  if (treeUnit.height < 1e-6) return;
+// 잔디(도로망 바깥)를 도시처럼 채운다. 배치 순서가 곧 공간 우선권이다 —
+// 건물(가장 큼) → 가로등(연석 옆) → 화단(빈틈) → 나무(남은 잔디). 모든 후보는
+// 도로 전체(ROADS)와 이미 놓인 것들로부터 최소 간격을 확인하고 통과할 때만 놓는다.
+// 도로가 선택 경로뿐 아니라 ROADS 전체로 그려지므로(§buildCityRoads) 간격 판정도
+// ROADS 전체를 기준으로 해야 어느 길 위에도 안 겹친다.
+function decorateGrass(scene, xs, zs, pad) {
   const roadSegs = [];
   for (const road of ROADS) roadSegs.push(...toSegments(road.map(pt)));
-
   const minX = Math.min(...xs) - pad,
     maxX = Math.max(...xs) + pad;
   const minZ = Math.min(...zs) - pad,
     maxZ = Math.max(...zs) + pad;
-  const TREE_CLEAR = ROAD_HALF + 1.5; // 도로에서 이만큼은 비워 둔다(건물도 도로 폭과 비슷해 같이 걸러진다)
-  const TREE_MIN_GAP = 4; // 나무끼리 최소 간격
-  const TREE_COUNT = 90; // "여러 곳" 목표 개수 — 후보가 부족하면 그보다 적게 심긴다
-  const MAX_TRY = TREE_COUNT * 25;
+  const logicalRoads = mergeStraightRoads(ROADS);
 
   function distToRoads(x, z) {
     let best = Infinity;
@@ -2217,23 +2264,131 @@ function scatterTrees(scene, treeUnit, xs, zs, pad) {
     return best;
   }
 
+  // 놓은 것들을 원(중심+반지름)으로 근사해 서로 안 겹치게 한다. roadClear는 도로
+  // 중앙선에서 이만큼은 떨어져야 한다는 최소 거리(도로 위·연석에 안 박히게).
   const placed = [];
-  let tries = 0;
-  const baseScale = TREE_TARGET_HEIGHT / treeUnit.height;
-  while (placed.length < TREE_COUNT && tries < MAX_TRY) {
-    tries++;
-    const x = minX + Math.random() * (maxX - minX);
-    const z = minZ + Math.random() * (maxZ - minZ);
-    if (distToRoads(x, z) < TREE_CLEAR) continue;
-    if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < TREE_MIN_GAP))
-      continue;
-    placed.push({ x, z });
-    const clone = treeUnit.unit.clone(true);
-    clone.position.set(x, 0, z);
-    clone.rotation.y = Math.random() * Math.PI * 2; // 방향 제약이 없으니 무작위로 세워도 된다
-    clone.scale.setScalar(baseScale * (0.8 + Math.random() * 0.5)); // 크기를 살짝 섞어 자연스럽게
-    scene.add(clone);
+  function fits(x, z, r, roadClear) {
+    if (x < minX || x > maxX || z < minZ || z > maxZ) return false;
+    if (distToRoads(x, z) < roadClear) return false;
+    return placed.every((p) => Math.hypot(p.x - x, p.z - z) >= p.r + r);
   }
+
+  // 로컬 +Z를 (dx,dz) 방향으로 돌리는 rotation.y (three.js Y축 회전 규약:
+  // +Z=(0,0,1) → (sinθ,cosθ)). 건물의 넓은 면과 가로등 팔이 도로를 바라보게 한다.
+  const faceRotY = (dx, dz) => Math.atan2(dx, dz);
+
+  // 도로(논리 도로)를 따라 s를 훑으며 양쪽에 후보를 넘긴다. place에는 그 지점에서
+  // 도로 중앙을 향하는 단위 벡터(dirx,dirz)도 같이 준다 — 방향 맞추는 데 쓴다.
+  function alongRoads(spacing, place) {
+    for (const names of logicalRoads) {
+      const segs = toSegments(names.map(pt));
+      const total = segs.reduce((a, sg) => a + sg.len, 0);
+      for (let s = spacing * 0.5; s < total; s += spacing) {
+        for (const side of [-1, 1]) {
+          const probe = pointAtArcLength(segs, s, side * (ROAD_HALF + 0.5));
+          let tx = probe.cx - probe.x,
+            tz = probe.cz - probe.z;
+          const tl = Math.hypot(tx, tz) || 1;
+          place(segs, s, side, tx / tl, tz / tl);
+        }
+      }
+    }
+  }
+
+  Promise.all([
+    Promise.all(OFFICE_URLS.map((u) => loadModelUnit(u, OFFICE_PART_COLOR))),
+    loadModelUnit(LIGHT_URL, LIGHT_PART_COLOR),
+    Promise.all(
+      FLOWERBED_URLS.map((u) => loadModelUnit(u, FLOWERBED_PART_COLOR)),
+    ),
+    Promise.all(TREE_URLS.map((u) => loadModelUnit(u, TREE_PART_COLOR))),
+  ])
+    .then(([offices, light, beds, trees]) => {
+      // ── 건물: 도로를 따라 양쪽에 늘어세운다. 넓은 면(±Z)이 도로를 향하고,
+      // 높이를 5~8로 섞어 스카이라인이 단조롭지 않게 한다(맵분위기 배치 팁).
+      let buildingCount = 0;
+      const BUILDING_CAP = 64;
+      alongRoads(13, (segs, s, side, dirx, dirz) => {
+        if (buildingCount >= BUILDING_CAP) return;
+        const unit = offices[Math.floor(Math.random() * offices.length)];
+        if (unit.height < 1e-6) return;
+        const sc = (5 + Math.random() * 3) / unit.height;
+        const halfDepth = (unit.depth * sc) / 2;
+        const radius = (Math.max(unit.width, unit.depth) * sc) / 2;
+        const a = pointAtArcLength(
+          segs,
+          s,
+          side * (ROAD_HALF + halfDepth + 1.2),
+        );
+        if (!fits(a.x, a.z, radius, radius + 1)) return;
+        const clone = unit.unit.clone(true);
+        clone.position.set(a.x, 0, a.z);
+        clone.rotation.y = faceRotY(dirx, dirz);
+        clone.scale.setScalar(sc);
+        scene.add(clone);
+        placed.push({ x: a.x, z: a.z, r: radius });
+        buildingCount++;
+      });
+
+      // ── 가로등: 연석 바로 옆에서 팔이 도로 위로 뻗게(+Z가 도로 방향).
+      if (light.height > 1e-6) {
+        const sc = 2.25 / light.height;
+        const radius = 0.7;
+        alongRoads(15, (segs, s, side, dirx, dirz) => {
+          const a = pointAtArcLength(segs, s, side * (ROAD_HALF + 0.8));
+          if (!fits(a.x, a.z, radius, ROAD_HALF - 0.3)) return;
+          const clone = light.unit.clone(true);
+          clone.position.set(a.x, 0, a.z);
+          clone.rotation.y = faceRotY(dirx, dirz);
+          clone.scale.setScalar(sc);
+          scene.add(clone);
+          placed.push({ x: a.x, z: a.z, r: radius });
+        });
+      }
+
+      // ── 화단: 건물·가로등이 못 채운 연석 옆 빈틈을 낮고 촘촘하게 메운다.
+      alongRoads(6, (segs, s, side) => {
+        const unit = beds[Math.floor(Math.random() * beds.length)];
+        if (unit.height < 1e-6) return;
+        const sc = (0.7 + Math.random() * 0.3) / unit.height;
+        const radius = (Math.max(unit.width, unit.depth) * sc) / 2 + 0.2;
+        const a = pointAtArcLength(segs, s, side * (ROAD_HALF + 0.7 + radius));
+        if (!fits(a.x, a.z, radius, ROAD_HALF + 0.3)) return;
+        const clone = unit.unit.clone(true);
+        clone.position.set(a.x, 0, a.z);
+        clone.rotation.y = Math.random() * Math.PI * 2;
+        clone.scale.setScalar(sc);
+        scene.add(clone);
+        placed.push({ x: a.x, z: a.z, r: radius });
+      });
+
+      // ── 나무: 남은 잔디에 변종을 섞어 흩어 심는다. 후보가 부족하면 목표보다
+      // 적게 심긴다(도로·기존 배치와 간격을 못 지키면 건너뛴다).
+      const TREE_COUNT = 55;
+      const MAX_TRY = TREE_COUNT * 25;
+      let planted = 0,
+        tries = 0;
+      while (planted < TREE_COUNT && tries < MAX_TRY) {
+        tries++;
+        const unit = trees[Math.floor(Math.random() * trees.length)];
+        if (unit.height < 1e-6) continue;
+        const x = minX + Math.random() * (maxX - minX);
+        const z = minZ + Math.random() * (maxZ - minZ);
+        const radius = 1.4;
+        if (!fits(x, z, radius, ROAD_HALF + 1.5)) continue;
+        const sc = (2.4 + Math.random() * 1.2) / unit.height;
+        const clone = unit.unit.clone(true);
+        clone.position.set(x, 0, z);
+        clone.rotation.y = Math.random() * Math.PI * 2;
+        clone.scale.setScalar(sc);
+        scene.add(clone);
+        placed.push({ x, z, r: radius });
+        planted++;
+      }
+    })
+    .catch((err) => {
+      console.error("배경 도시 에셋 로드 실패 — 잔디가 비어 보인다", err);
+    });
 }
 
 // ── 공사장 바리게이트 — barricade.glb ─────────────────
@@ -2416,8 +2571,7 @@ function buildRoadStrip(scene, names, mats, junctions, roadIdx, fenceSegments) {
       d1 = dirs[i + 1];
     const vRepeat = Math.max(1, len / 6); // prototype 기준 3유닛마다 색이 바뀌도록 주기 6유닛
     const mat = mats[segType[i]] || mats.S; // 이 구간이 S/T/C 중 무엇이냐에 따라 색
-    const floorMat = mat.floor,
-      wallMat = mat.wall;
+    const floorMat = mat.floor;
 
     scene.add(
       new THREE.Mesh(
@@ -2437,27 +2591,13 @@ function buildRoadStrip(scene, names, mats, junctions, roadIdx, fenceSegments) {
     for (const side of [-1, 1]) {
       const p0 = [wx0 + d0.x * ROAD_HALF * side, wz0 + d0.z * ROAD_HALF * side];
       const p1 = [wx1 + d1.x * ROAD_HALF * side, wz1 + d1.z * ROAD_HALF * side];
-      // 일반(S)·공사장(C) 구간은 fence.glb로 대체한다 — 요구사항: 공사장 벽의
-      // 색 구분을 없앤다(일반 벽과 완전히 같은 모델·색). T는 신호등 색 구분이
-      // 기능이라 기존 벽(quad)을 그대로 둔다. 충돌은 이 메시와 무관하게
-      // ROAD_HALF로만 계산되므로(clampToRoad) 시각 교체가 충돌 판정에 영향을
-      // 주지 않는다.
-      if (segType[i] === "S" || segType[i] === "C") {
+      // 일반(S)·공사장(C) 구간의 연석은 fence2.glb로 세운다(비동기 로드라 여기선
+      // 선분만 모은다). T(신호등)는 벽을 세우지 않는다 — 교차로가 주변 도시
+      // 거리와 트여 보이도록 예전의 노란 벽을 없앴다(맵분위기 배치 아이디어).
+      // 충돌은 이 메시와 무관하게 clampToRoad가 ROAD_HALF로만 판정하므로 벽
+      // 유무는 판정에 영향을 주지 않는다.
+      if (segType[i] === "S" || segType[i] === "C")
         fenceSegments.push([p0, p1]);
-        continue;
-      }
-      scene.add(
-        new THREE.Mesh(
-          quadGeometry(
-            [p0[0], 0, p0[1]],
-            [p0[0], CEIL, p0[1]],
-            [p1[0], CEIL, p1[1]],
-            [p1[0], 0, p1[1]],
-            vRepeat,
-          ),
-          wallMat,
-        ),
-      );
     }
 
     for (const lo of [-1.15, 1.15]) {
