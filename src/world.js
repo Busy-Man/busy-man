@@ -40,10 +40,16 @@
 **/
 
 import * as THREE from "../vendor/three.module.js";
+import { state } from "./state.js";
 
 // ── 튜닝 상수 ────────────────────────────────────
 const EYE = 1.62;
 const SPEED = 6.0;
+const BOOST_SPEED = 12.0; // 부스터 사용 중 이동 속도 (기본 SPEED=6 대비)
+// 부스터 게이지 초당 소모량(%). 풀 게이지가 약 3.3초 지속되는 값이다 —
+// 근거가 있는 값이 아니라 잠정치이고, 8/6류 밸런싱 대상이다
+// (quiz.js TUNING.gaugeOnCorrect/gaugeOnWrong과 짝, docs/balance-todo.md 참고).
+const BOOST_DRAIN_PER_SEC = 30;
 
 const STEER_ACCEL = 26,
   STEER_DAMP = 30,
@@ -609,6 +615,14 @@ export function createWorld(container, opts = {}) {
     const moveLeft = !trap.trapped && !!(input && input.moveLeft),
       moveRight = !trap.trapped && !!(input && input.moveRight);
 
+    // 부스터 — 신호등 잘못된 차선에 갇힌 동안은 못 쓴다(요구사항). 게이지가
+    // 남아 있는 동안만 켜지고, 0이 되면 다음 프레임부터 자동으로 꺼진다.
+    const boosting =
+      !trap.trapped && !!(input && input.boost) && state.gauge > 0;
+    if (boosting) {
+      state.gauge = Math.max(0, state.gauge - BOOST_DRAIN_PER_SEC * dt);
+    }
+
     if (turnLeft && !turnRight) headingVel -= TURN_ACCEL * dt;
     else if (turnRight && !turnLeft) headingVel += TURN_ACCEL * dt;
     else
@@ -627,7 +641,13 @@ export function createWorld(container, opts = {}) {
     // 퀴즈 패널티 전용이라 여기 안 쓴다). 감속이 남아 있으면 이번 프레임 전진만 준다.
     // 신호등에 갇혔으면 그동안은 군중과 함께 느린 속도로만 끌려간다.
     const collisionMul = stun > 0 ? HIT_SLOW : 1;
-    const forward = trap.trapped ? trap.trapSpeed : SPEED * collisionMul;
+    // 가속 중엔 무적(docs/기획_1차_보완.md §조작) — 충돌 감속(collisionMul)을
+    // 무시하고 BOOST_SPEED를 그대로 낸다.
+    const forward = trap.trapped
+      ? trap.trapSpeed
+      : boosting
+        ? BOOST_SPEED
+        : SPEED * collisionMul;
     const fwd = dirVec(heading),
       perp = perpVec(heading);
     let nx = x + (fwd.x * forward + perp.x * pvx) * dt;
@@ -689,7 +709,10 @@ export function createWorld(container, opts = {}) {
       heading,
       stun <= 0 && !trap.trapped,
     );
-    if (hit) {
+    // 가속 중엔 무적이라 부딪혀도 사람만 밀치고 지나간다 — hitCount·감속·
+    // 넉백을 적용하지 않는다(stepPedestrians가 이미 그 행인을 hit 처리해
+    // 다시 판정 대상이 되지는 않는다).
+    if (hit && !boosting) {
       hitCount++;
       stun = HIT_STUN;
       pvx = hit.pushSign * HIT_KNOCK; // 옆으로 튕긴다
