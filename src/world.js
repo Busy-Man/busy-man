@@ -654,17 +654,18 @@ export function createWorld(container, opts = {}) {
     else pvx -= Math.sign(pvx) * Math.min(Math.abs(pvx), STEER_DAMP * dt);
     pvx = clamp(pvx, -STEER_MAX, STEER_MAX);
 
-    // 충돌 감속은 world.js 안에서 전진 속도에 곱한다(AGENTS.md §2 — speedMul은
-    // 퀴즈 패널티 전용이라 여기 안 쓴다). 감속이 남아 있으면 이번 프레임 전진만 준다.
-    // 신호등에 갇혔으면 그동안은 군중과 함께 느린 속도로만 끌려간다.
+    // 충돌 감속(collisionMul)은 world.js 안에서만 걸고 복귀 타이머도 여기서 관리한다
+    // (AGENTS.md §2 — speedMul에 두면 퀴즈 쪽 복귀 타이머와 서로 지운다). 퀴즈 오답
+    // 패널티(state.speedMul)는 B(quiz.js)가 기록하는 값을 곱해서만 반영한다 —
+    // AGENTS.md §2가 못 박은 공식 SPEED * state.speedMul * collisionMul.
     const collisionMul = stun > 0 ? HIT_SLOW : 1;
-    // 가속 중엔 무적(docs/기획_1차_보완.md §조작) — 충돌 감속(collisionMul)을
-    // 무시하고 BOOST_SPEED를 그대로 낸다.
+    // 가속 중엔 무적(docs/기획_1차_보완.md §조작) — 충돌 감속(collisionMul)과
+    // 퀴즈 감속(state.speedMul)을 모두 무시하고 BOOST_SPEED를 그대로 낸다.
     const forward = trap.trapped
       ? trap.trapSpeed
       : boosting
         ? BOOST_SPEED
-        : SPEED * collisionMul;
+        : SPEED * state.speedMul * collisionMul;
     const fwd = dirVec(heading),
       perp = perpVec(heading);
     let nx = x + (fwd.x * forward + perp.x * pvx) * dt;
