@@ -36,7 +36,7 @@ const TUNING = {
   askMinSec:      6,
   askMaxSec:      8,
 
-  gaugeOnCorrect: +1,
+  gaugeOnCorrect: +30,
 
   // 오답·타임아웃은 아래 2종 중 하나가 랜덤으로 걸린다 (AGENTS.md §3, 등급 잠정).
   // slowChance 가 balance-todo.md §1 의 `r` 이다. 반반에서 시작할지조차 정해진 적이
@@ -44,7 +44,7 @@ const TUNING = {
   slowChance:     0.5,
   slowMul:        0.6,   // 걸렸을 때의 state.speedMul
   slowSeconds:    3,
-  gaugeOnWrong:   1      // 걸렸을 때 깎는 칸 수
+  gaugeOnWrong:   20     // 걸렸을 때 깎는 칸 수
 };
 
 // 숨은 탭에서 rAF 가 멈춘 뒤 복귀하면 첫 프레임의 dt 가 통째로 점프한다.
