@@ -50,6 +50,17 @@ addEventListener("keydown", (e) => {
     return;
   }
   const k = e.key.toLowerCase();
+  // R — 다시 시작 확인 모달. 게임이 끝났거나(도착·시간초과) 이미 떠 있으면 무시한다.
+  // 퀴즈가 뜬 동안(isPaused())에도 무시한다 — quiz.js가 자기 rAF로 카운트다운을
+  // 돌리는데(B 소유), 그 위에 모달을 얹어도 이쪽에선 그 타이머를 멈출 수 없다.
+  if (k === "r") {
+    if (!confirmOpen && !isPaused() && !world.arrived && !timedOut) {
+      confirmOpen = true;
+      restartConfirm.show();
+    }
+    e.preventDefault();
+    return;
+  }
   const field = KEY_MAP[k];
   if (field) {
     input[field] = true;
@@ -74,6 +85,7 @@ addEventListener("resize", () => world.resize());
 let elapsed = 0;
 let clearTime = null;
 let timedOut = false; // 성공 제한 시간을 넘겨 실패한 상태
+let confirmOpen = false; // R로 띄운 "다시 시작" 확인 모달이 떠 있는 동안 true
 function isPaused() {
   return state.quizOpen;
 }
@@ -88,7 +100,11 @@ function endGame() {
 function restart() {
   world.reset();
   phone.reset();
-  // 도착·시간초과 시 quiz.destroy()가 raf 루프를 끊어 두므로 reset()만으로는 되살아나지 않으므로 다음과 같이 처리한다.
+  // R 확인 모달로 게임 도중 재시작하면 endGame()이 아직 quiz.destroy()를 부르지
+  // 않은 상태다 — 살아있는 rAF 루프를 그대로 두면 새로 만든 인스턴스와 겹쳐 돌며
+  // 퀴즈가 중복으로 뜬다. destroy()는 멱등이라 도착·시간초과 경로(이미 destroy된
+  // 상태)에서 다시 불러도 안전하다.
+  quiz.destroy();
   quiz = mountQuiz(document.body, { content, state });
   elapsed = 0;
   clearTime = null;
@@ -107,21 +123,35 @@ function formatTime(sec) {
 const timeBar = makeTimeBar();
 const boostBar = makeBoostBar();
 const result = makeResult(restart);
+// R로 여는 "다시 시작" 확인 모달. 취소하면 그냥 닫고, 확인하면 restart()를 부른다 —
+// 둘 다 confirmOpen을 반드시 꺼야 loop()가 다시 시간·이동을 흘려보낸다.
+const restartConfirm = makeRestartConfirm(
+  () => {
+    confirmOpen = false;
+    restartConfirm.hide();
+    restart();
+  },
+  () => {
+    confirmOpen = false;
+    restartConfirm.hide();
+  },
+);
 // 좌상단에 [시간][부스터]를 같은 줄에 가로로 둔다(요구사항: 타임→부스터 순, 둘 다 왼쪽,
 // 일직선). 부딪힘 횟수는 상시 HUD에서 빼고 결과 모달에서만 보여준다(요구사항).
 const topLeft = document.createElement("div");
 topLeft.style.cssText =
   "position:fixed; top:16px; left:16px; z-index:10; display:flex; align-items:center; gap:12px;";
 topLeft.append(timeBar.el, boostBar.el);
-document.body.append(topLeft, result.el);
+document.body.append(topLeft, result.el, restartConfirm.el);
 
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.033, (now - last) / 1000);
   last = now;
 
-  // 퀴즈로 멈췄거나 게임이 끝났으면(도착·시간초과) 시간·이동을 멈춘다. 화면은 계속 그린다.
-  if (!isPaused() && !world.arrived && !timedOut) {
+  // 퀴즈로 멈췄거나, R 확인 모달이 떠 있거나, 게임이 끝났으면(도착·시간초과)
+  // 시간·이동을 멈춘다. 화면은 계속 그린다.
+  if (!isPaused() && !confirmOpen && !world.arrived && !timedOut) {
     elapsed += dt;
     world.update(dt, input);
     // 성공 제한 시간을 넘기면 실패로 확정한다. 도착 판정보다 뒤에서 보므로, 같은
@@ -238,6 +268,54 @@ function makeResult(onRestart) {
       title.style.color = success ? "#2F6F6B" : "#A3324A";
       big.textContent = formatTime(sec);
       sub.textContent = "부딪힘 " + hits + "회";
+      el.style.display = "flex";
+    },
+    hide() {
+      el.style.display = "none";
+    },
+  };
+}
+
+// R로 여는 "다시 시작" 확인 모달. 퀴즈 모달(z-index 200~299, world.js/quiz.js 대역
+// 구분 참고) 위까지 덮어도 되게 그보다 위(300)에 둔다 — 지금은 퀴즈가 뜬 동안
+// R 자체를 안 받으므로 실제로 겹칠 일은 없지만, 나중에 그 가드가 풀려도 안전하게.
+function makeRestartConfirm(onConfirm, onCancel) {
+  const el = document.createElement("div");
+  el.style.cssText = `
+    position:fixed; inset:0; z-index:300; display:none;
+    align-items:center; justify-content:center; background:rgba(16,18,20,0.55);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+  `;
+  const card = document.createElement("div");
+  card.style.cssText = `
+    background:#fff; color:#1B1D21; border-radius:16px; padding:26px 32px;
+    text-align:center; box-shadow:0 18px 60px rgba(0,0,0,0.35); min-width:260px;
+  `;
+  const msg = document.createElement("div");
+  msg.textContent = "게임을 다시 시작하시겠습니까?";
+  msg.style.cssText = "font-size:16px; font-weight:650; margin-bottom:20px;";
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex; gap:10px; justify-content:center;";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "취소";
+  cancelBtn.style.cssText = `
+    font-family:inherit; font-size:15px; font-weight:600; color:#2A2F36; cursor:pointer;
+    background:#E6E9ED; border:0; padding:10px 24px; border-radius:10px;
+  `;
+  const confirmBtn = document.createElement("button");
+  confirmBtn.textContent = "확인";
+  confirmBtn.style.cssText = `
+    font-family:inherit; font-size:15px; font-weight:600; color:#fff; cursor:pointer;
+    background:#A3324A; border:0; padding:10px 24px; border-radius:10px;
+  `;
+  cancelBtn.addEventListener("click", onCancel);
+  confirmBtn.addEventListener("click", onConfirm);
+  row.append(cancelBtn, confirmBtn);
+  card.append(msg, row);
+  el.appendChild(card);
+  return {
+    el,
+    show() {
       el.style.display = "flex";
     },
     hide() {
