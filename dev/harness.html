@@ -238,7 +238,7 @@ try {
 
 // ── 조작 (검증 패널) ────────────────────────────────────────
 el('b-toggle').onclick = () => { phoneVisible = !phoneVisible; phone.setVisible(phoneVisible); };
-el('b-msg').onclick    = () => phone.pushMessage(content.messages[0]);
+el('b-msg').onclick    = () => phone.pushMessage(content.__bmSession.messages[0]);
 // 길 안내는 AGENTS.md §3 의 「열림」이다. 수신부 확인용으로만 눌러 본다.
 el('b-map').onclick    = () => phone.pushMap(Math.floor(Math.random() * 3));
 // fireGate 가 던지지 않는지만 본다. 지금 듣는 쪽이 없어서 화면에는 아무 일도 안 일어난다 —

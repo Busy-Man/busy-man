@@ -24,7 +24,8 @@
 // 생김새는 docs/ui-spec.md 다. 「문제 상자」가 아니라 **폰**이어야 한다 —
 // 질문이 수신 문자로 읽히지 않으면 대화를 기억하는 게임이라는 것이 전달되지 않는다.
 
-import { advanceQuizSchedule } from './quiz-eligibility.mjs';
+import { prepareContentSession } from './content-session.mjs';
+import { advanceAskTimer, selectEligibleQuiz } from './quiz-eligibility.mjs';
 
 // ── 8/6 밸런싱에서 이 블록만 손댄다. 짝: src/phone.js 의 TUNING ──────────────
 const TUNING = {
@@ -67,13 +68,12 @@ export function mountQuiz(root, opts) {
 
   const { content, state } = opts;
   const host = root || document.body;
+  let session = prepareContentSession(content);
 
-  validateContent(content);
+  validateContent(session, content);
   injectStyle();
 
-  // 순차로 소비한다. 풀 20문항이 한 판 분량과 거의 같아서 뽑기를 넣어도 순서만 바뀐다.
-  // 풀을 키워 인플레이 랜덤 추출로 가는 것이 최종 방향이고, 그때 이 idx 가 뽑기로 바뀐다.
-  let idx = 0;
+  let askedIds = new Set();
   let countdownLeft = 0;    // > 0 이면 모달이 떠 있다
   let penaltyLeft = 0;      // > 0 이면 감속 중
   let current = null;       // { quiz, el, timerEl }
@@ -113,16 +113,8 @@ export function mountQuiz(root, opts) {
     } else {
       // 모달이 떠 있는 동안에는 다음 질문까지의 시간이 흐르지 않는다. 답하는 데 쓴 10초가
       // 주기에 포함되면 모달이 닫히자마자 다음 질문이 뜨는 구간이 생긴다.
-      const schedule = advanceQuizSchedule(
-        askLeft,
-        dt,
-        sourceRenderedAt.get(content.quizzes[idx] && content.quizzes[idx].sourceMessageIndex),
-        phoneActiveTime
-      );
-      askLeft = schedule.askLeft;
-      if (schedule.shouldOpen || (idx >= content.quizzes.length && askLeft === 0)) {
-        openNext();
-      }
+      askLeft = advanceAskTimer(askLeft, dt);
+      if (askLeft === 0) openNext();
     }
 
     // 재대입만으로 중첩이 풀린다. 타이머 핸들을 들고 있으면 오답 직후 무응답에서
@@ -144,14 +136,22 @@ export function mountQuiz(root, opts) {
 
   function openNext() {
     if (current) return;                       // 이미 떠 있으면 무시
-    if (idx >= content.quizzes.length) {
+    if (askedIds.size >= session.quizzes.length) {
       if (!exhausted) {
         exhausted = true;
-        console.warn('[quiz] 준비된 질문 ' + content.quizzes.length + '개를 다 썼습니다 — 스테이지가 길거나 주기가 짧습니다');
+        console.warn('[quiz] 이번 판 질문 ' + session.quizzes.length + '개를 다 썼습니다');
       }
       return;
     }
-    open(content.quizzes[idx++]);
+    const source = selectEligibleQuiz(
+      session.quizzes,
+      sourceRenderedAt,
+      askedIds,
+      phoneActiveTime
+    );
+    if (!source) return;
+    askedIds.add(source.id);
+    open(source);
   }
 
   function open(source) {
@@ -238,7 +238,8 @@ export function mountQuiz(root, opts) {
   function reset() {
     if (current && current.el.parentNode) current.el.parentNode.removeChild(current.el);
     current = null;
-    idx = 0;
+    session = prepareContentSession(content);
+    askedIds = new Set();
     exhausted = false;
     askLeft = nextGap();
     countdownLeft = 0;
@@ -261,7 +262,7 @@ export function mountQuiz(root, opts) {
 
 // ── 내부 ────────────────────────────────────────────────────────────────────
 
-// 원본을 건드리지 않고 섞인 사본을 만든다. content.quizzes 를 제자리에서 섞으면
+// 원본을 건드리지 않고 섞인 사본을 만든다. 세션 quizzes 를 제자리에서 섞으면
 // reset() 뒤에 같은 판을 다시 돌릴 때 원래 순서가 이미 사라져 있다.
 function shuffleChoices(quiz) {
   const order = quiz.choices.map((_, i) => i);
@@ -278,12 +279,13 @@ function shuffleChoices(quiz) {
 }
 
 // 스키마가 어긋나면 화면에는 모달이 안 뜨는 것으로만 보인다. 어디가 틀렸는지 말해 준다.
-function validateContent(content) {
-  if (!Array.isArray(content.quizzes) || content.quizzes.length === 0) {
-    console.error('[quiz] content.quizzes 가 비어 있습니다');
+function validateContent(session, content) {
+  if (!Array.isArray(session.quizzes) || session.quizzes.length === 0) {
+    console.error('[quiz] session.quizzes 가 비어 있습니다');
     return;
   }
-  content.quizzes.forEach((q, i) => {
+  const messageIds = new Set(session.messages.map((message) => message.id));
+  session.quizzes.forEach((q, i) => {
     if (!Array.isArray(q.choices) || q.choices.length !== 3) {
       console.error('[quiz] quizzes[' + i + '].choices 는 3개여야 합니다:', q.choices);
     }
@@ -293,11 +295,8 @@ function validateContent(content) {
     if (typeof q.sender !== 'string' || !q.sender) {
       console.error('[quiz] quizzes[' + i + '].sender 가 없습니다:', q.sender);
     }
-    if (!Number.isInteger(q.sourceMessageIndex)
-        || q.sourceMessageIndex < 0
-        || !Array.isArray(content.messages)
-        || q.sourceMessageIndex >= content.messages.length) {
-      throw new Error('[quiz] quizzes[' + i + '].sourceMessageIndex 는 messages 범위의 정수여야 합니다: ' + q.sourceMessageIndex);
+    if (typeof q.sourceMessageId !== 'string' || !messageIds.has(q.sourceMessageId)) {
+      throw new Error('[quiz] quizzes[' + i + '].sourceMessageId 가 이번 판 메시지에 없습니다: ' + q.sourceMessageId);
     }
   });
   ['correct', 'wrong', 'timeout', 'penaltySlow', 'penaltyGauge'].forEach((k) => {

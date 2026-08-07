@@ -10,6 +10,8 @@
 //
 // 생김새와 규칙은 docs/ui-spec.md §대화 스트림 폰 이다.
 
+import { prepareContentSession } from './content-session.mjs';
+
 // ── 8/6 밸런싱에서 이 블록만 손댄다. 짝: src/quiz.js 의 TUNING ──────────────
 // 블록 밖으로는 CSS 변수로만 나간다. 값이 코드에 흩어지면 그날 파일을 통째로 읽어야 한다.
 const TUNING = {
@@ -53,12 +55,13 @@ export function mountPhone(root, opts) {
   }
 
   const { content, state } = opts;
+  let session = prepareContentSession(content);
   // 시작 상태. 기본이 폰이고 Space 를 눌러야 정면을 보는 조작이므로(docs/기획_1차_보완.md
   // — "space 눌렀을 때의 동작은 프로토타입과 동일") 기본값은 true 다.
   // 마운트 뒤에 setVisible() 로 맞추면 시작하자마자 폰이 한 번 미끄러지는 게 보인다.
   const initialVisible = opts.visible !== false;
 
-  validateContent(content);
+  validateContent(session);
   injectStyle();
 
   const el = buildPhone(content.chrome);
@@ -74,7 +77,7 @@ export function mountPhone(root, opts) {
   const stream = el.querySelector('.bm-phone-stream');
 
   let acc = 0;          // 마지막 문자 이후 누적 시간
-  let idx = 0;          // content.messages 순회 위치. 소진되면 순환한다
+  let idx = 0;          // 이번 판 메시지 순회 위치. 소진되면 순환한다
   let last = performance.now();
   let raf = 0;
   activeTime = 0;
@@ -99,11 +102,11 @@ export function mountPhone(root, opts) {
       acc += dt;
       if (acc >= TUNING.streamSec) {
         acc = 0;
-        const messageIndex = idx++ % content.messages.length;
-        pushMessage(content.messages[messageIndex]);
+        const message = session.messages[idx++ % session.messages.length];
+        pushMessage(message);
         // 같은 메시지가 스트림 순환으로 다시 나와도 최초 관찰 시각을 보존한다.
         // 이미 본 근거를 다시 흘렸다고 퀴즈 대기 시간이 늘어나면 안 된다.
-        if (!renderedAt.has(messageIndex)) renderedAt.set(messageIndex, activeTime);
+        if (!renderedAt.has(message.id)) renderedAt.set(message.id, activeTime);
       }
       publishTimeline();
     }
@@ -162,6 +165,7 @@ export function mountPhone(root, opts) {
 
   function reset() {
     while (stream.firstChild) stream.removeChild(stream.firstChild);
+    session = prepareContentSession(content, { force: true });
     acc = 0;
     idx = 0;
     activeTime = 0;
@@ -181,12 +185,12 @@ export function mountPhone(root, opts) {
 // ── 내부 ────────────────────────────────────────────────────────────────────
 
 // 스키마가 어긋나면 화면에는 문자가 안 뜨는 것으로만 보인다. 어디가 틀렸는지 말해 준다.
-function validateContent(content) {
-  if (!Array.isArray(content.messages) || content.messages.length === 0) {
-    console.error('[phone] content.messages 가 비어 있습니다');
+function validateContent(session) {
+  if (!Array.isArray(session.messages) || session.messages.length === 0) {
+    console.error('[phone] session.messages 가 비어 있습니다');
     return;
   }
-  content.messages.forEach((m, i) => {
+  session.messages.forEach((m, i) => {
     if (!KINDS.includes(m.kind)) {
       console.error('[phone] messages[' + i + '].kind 가 person/notice/map 이 아닙니다:', m.kind);
     }
