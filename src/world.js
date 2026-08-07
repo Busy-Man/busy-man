@@ -1136,6 +1136,21 @@ function createEvents(scene, routeNames, segments, totalLength, pedRoads, spawnB
     const zone = nodeZone(routeNames[i]);
     if (!zone) continue;
     const centerS = nodeS(i);
+    // 미리 알려주는 폭(BARR_LEAD_SEC·TL_HALF_SEC + 6)이 바로 앞 구간보다 길면
+    // 안내 s가 앞 노드(갈림길 등)보다 먼저 새어나가 안내 순서가 뒤바뀐다 —
+    // 예: N4→T4는 14.7유닛인데 신호등 사전 안내 폭은 18유닛이라, 클램프가
+    // 없으면 T4 안내가 N4의 갈림길 안내보다 먼저 떴다(모든 경로에서 재현,
+    // docs/map/맵 시간 배분.md §4-1과 대조해 확인). nodeS(i-1)을 하한으로 둔다.
+    //
+    // 하한을 nodeS(i-1) 그대로 쓰면 앞 노드가 실제 갈림길(computeTurnHints의
+    // turn 항목)일 때 두 안내의 s가 정확히 같아진다 — update()의 전진 판정은
+    // prevS < front.s && s >= front.s라서, s가 같은 두 항목 중 앞엣것이 그
+    // 지점을 지나가는 순간 뒤엣것은 이미 prevS >= front.s인 채로 front가 되어
+    // 영원히 그 조건을 못 만족한다. 그러면 안내 큐 전체가 거기서 멈춘다 —
+    // T4 뒤의 B7, C3 뒤의 B8 안내가 통째로 안 뜨던 원인이 이것이었다(update()의
+    // announced/resolved 전이를 그대로 시뮬레이션해서 재현·확인). +1로 반드시
+    // 앞 노드보다 뒤에 오게 한다.
+    const navFloor = nodeS(i - 1) + 1;
 
     if (zone === "C") {
       const lane = Math.floor(Math.random() * 3);
@@ -1145,7 +1160,7 @@ function createEvents(scene, routeNames, segments, totalLength, pedRoads, spawnB
       events.push({ type: "C", lane, centerS, barrS, mesh, risen: 0 });
       navHints.push({
         kind: "construction",
-        s: centerS - durationToDistance(BARR_LEAD_SEC) - 6,
+        s: Math.max(centerS - durationToDistance(BARR_LEAD_SEC) - 6, navFloor),
         arrow: "⚠",
         text: `주의!! ${LANE_NAME[lane]} 공사 중`,
         lane, // phone.pushMap(event)이 event.lane으로 읽는다 — 막힌(피해야 할) 차선
@@ -1195,7 +1210,7 @@ function createEvents(scene, routeNames, segments, totalLength, pedRoads, spawnB
       });
       navHints.push({
         kind: "traffic",
-        s: startS - 6,
+        s: Math.max(startS - 6, navFloor),
         arrow: "↑",
         text: `${LANE_NAME[safeLane]}로 건너기`,
         lane: safeLane, // phone.pushMap(event)이 event.lane으로 읽는다 — 건너야 할(안전한) 차선
@@ -1438,6 +1453,12 @@ function computeTurnHints(waypoints, names) {
       [x1, z1] = waypoints[i],
       [x2, z2] = waypoints[i + 1];
     acc += Math.hypot(x1 - x0, z1 - z0);
+    // 건물(B7 제외) 안쪽 노드는 실제 갈림길이 아니다. buildingPlacement 주석이
+    // 말하듯 B8처럼 이웃 노드 두 개가 일직선이 아니면 물리적으로는 꺾이지만,
+    // 그건 건물 상자가 도로 방향에 맞춰 꺾인 것일 뿐 유저가 고를 다른 길이
+    // 없다 — 게이트 안내만으로 충분하다. docs/map/맵 시간 배분.md §4-1의 9개
+    // 경로 어디에도 건물 안 갈림길 안내가 없는데 B8만 새고 있었다.
+    if (/^B\d+$/.test(names[i]) && NODE_DEGREE[names[i]] < 3) continue;
     const h0 = Math.atan2(z1 - z0, x1 - x0),
       h1 = Math.atan2(z2 - z1, x2 - x1);
     let diff = h1 - h0;
@@ -1446,8 +1467,8 @@ function computeTurnHints(waypoints, names) {
     if (Math.abs(diff) < 0.2) {
       // 거의 직진이면 방향은 안 꺾인다 — 다만 여기가 실제 갈림길(차수 3 이상)
       // 이면 유저는 화면에서 다른 길도 보고 있으므로, 직진도 안내해야 헷갈리지
-      // 않는다(요구사항). 차수 2 이하(T/C 표지·건물 통과 등 갈림길이 아닌 지점)는
-      // 계속 건너뛴다.
+      // 않는다(요구사항). 차수 2 이하(T/C 표지 등 갈림길이 아닌 지점)는 계속
+      // 건너뛴다.
       if (NODE_DEGREE[names[i]] >= 3) hints.push({ s: acc, dir: "straight" });
       continue;
     }
