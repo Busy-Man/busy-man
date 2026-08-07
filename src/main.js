@@ -55,7 +55,7 @@ addEventListener("keydown", (e) => {
   }
 });
 addEventListener("keyup", (e) => {
-  if (e.key === " ") {
+  if (e.key === " " && !world.arrived) {
     phone.setVisible(true);
     return;
   }
@@ -111,6 +111,7 @@ function loop(now) {
 
   // 도착 순간 한 번만 클리어 시간을 확정하고 결과를 띄운다.
   if (world.arrived && clearTime === null) {
+    phone.setVisible(false);
     clearTime = elapsed;
     result.show(clearTime, world.hits);
   }
