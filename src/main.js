@@ -73,17 +73,26 @@ addEventListener("resize", () => world.resize());
 // 타이머와 이동을 함께 멈춘다.
 let elapsed = 0;
 let clearTime = null;
+let timedOut = false; // 성공 제한 시간을 넘겨 실패한 상태
 function isPaused() {
   return state.quizOpen;
+}
+
+// 도착이든 시간초과든 게임이 끝나면 폰을 내리고 퀴즈 루프를 끊는다 — 결과 모달 위에
+// 폰·퀴즈가 얹히지 않게. clearTime === null 게이트로 한 번만 부른다.
+function endGame() {
+  phone.setVisible(false);
+  quiz.destroy();
 }
 
 function restart() {
   world.reset();
   phone.reset();
-  // 도착 시 quiz.destroy()가 raf 루프를 끊어 두므로 reset()만으로는 되살아나지 않으므로 다음과 같이 처리한다.
+  // 도착·시간초과 시 quiz.destroy()가 raf 루프를 끊어 두므로 reset()만으로는 되살아나지 않으므로 다음과 같이 처리한다.
   quiz = mountQuiz(document.body, { content, state });
   elapsed = 0;
   clearTime = null;
+  timedOut = false;
   result.hide();
 }
 
@@ -95,71 +104,85 @@ function formatTime(sec) {
 }
 
 // ── HUD / 결과 UI (index.html은 그대로 두고 여기서 인라인으로 만든다) ──
-const hud = makeHud();
+const timeBar = makeTimeBar();
 const boostBar = makeBoostBar();
 const result = makeResult(restart);
-document.body.appendChild(hud.el);
-document.body.appendChild(boostBar.el);
-document.body.appendChild(result.el);
+// 좌상단에 [시간][부스터]를 같은 줄에 가로로 둔다(요구사항: 타임→부스터 순, 둘 다 왼쪽,
+// 일직선). 부딪힘 횟수는 상시 HUD에서 빼고 결과 모달에서만 보여준다(요구사항).
+const topLeft = document.createElement("div");
+topLeft.style.cssText =
+  "position:fixed; top:16px; left:16px; z-index:10; display:flex; align-items:center; gap:12px;";
+topLeft.append(timeBar.el, boostBar.el);
+document.body.append(topLeft, result.el);
 
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.033, (now - last) / 1000);
   last = now;
 
-  // 퀴즈로 멈췄거나 이미 도착했으면 시간·이동을 멈춘다. 화면은 계속 그린다.
-  if (!isPaused() && !world.arrived) {
+  // 퀴즈로 멈췄거나 게임이 끝났으면(도착·시간초과) 시간·이동을 멈춘다. 화면은 계속 그린다.
+  if (!isPaused() && !world.arrived && !timedOut) {
     elapsed += dt;
     world.update(dt, input);
+    // 성공 제한 시간을 넘기면 실패로 확정한다. 도착 판정보다 뒤에서 보므로, 같은
+    // 프레임에 도착과 시간초과가 함께 성립하면 아래에서 도착(성공)이 이긴다.
+    if (elapsed >= world.timeLimit) timedOut = true;
   }
   world.render();
 
-  // 도착 순간 한 번만 클리어 시간을 확정하고 결과를 띄운다.
+  // 끝나는 순간 한 번만(clearTime===null) 결과 모달을 띄운다. 도착=성공, 시간초과=실패.
   if (world.arrived && clearTime === null) {
-    phone.setVisible(false);
-    quiz.destroy();
+    endGame();
     clearTime = elapsed;
-    result.show(clearTime, world.hits);
+    result.show(clearTime, world.hits, true);
+  } else if (timedOut && clearTime === null) {
+    endGame();
+    clearTime = elapsed;
+    result.show(clearTime, world.hits, false);
   }
 
-  hud.set(formatTime(elapsed), world.hits);
+  // 성공 제한 시간 대비 경과 비율만 폭으로. 숫자는 보여주지 않는다(요구사항).
+  timeBar.set(elapsed / world.timeLimit);
   boostBar.set(state.gauge);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
 // ── UI 빌더 ────────────────────────────────────────
-function makeHud() {
+// 시간 게이지 — 좌상단 맨 위. 부스터 게이지와 같은 크기(요구사항). 0%에서 시작해
+// 성공 제한 시간에 닿으면 100%가 된다. 숫자는 절대 표시하지 않는다(요구사항).
+// 퀴즈·결과로 멈춘 동안은 elapsed가 흐르지 않으므로 게이지도 자동으로 함께 멈춘다.
+// 위치는 좌상단 flex 컨테이너(topLeft)가 잡는다.
+function makeTimeBar() {
   const el = document.createElement("div");
   el.style.cssText = `
-    position:fixed; top:16px; left:16px; z-index:10; pointer-events:none;
-    display:flex; gap:14px; align-items:baseline;
-    padding:8px 14px; border-radius:10px; background:rgba(27,29,33,0.72); color:#fff;
-    font:600 15px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+    flex:0 0 auto; width:min(320px,66vw); height:14px; border-radius:999px;
+    background:rgba(27,29,33,0.55); overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
   `;
-  const time = document.createElement("span");
-  time.style.cssText = "font-variant-numeric:tabular-nums; font-size:18px;";
-  const hits = document.createElement("span");
-  hits.style.cssText = "font-size:13px; color:#cfd4da;";
-  el.appendChild(time);
-  el.appendChild(hits);
+  const fill = document.createElement("div");
+  fill.style.cssText = `
+    height:100%; width:0%; background:#E0A458;
+    transition:width .1s linear;
+  `;
+  el.appendChild(fill);
   return {
     el,
-    set(t, h) {
-      time.textContent = "⏱ " + t;
-      hits.textContent = "부딪힘 " + h;
+    set(frac) {
+      const pct = Math.min(100, Math.max(0, frac * 100));
+      fill.style.width = pct + "%";
     },
   };
 }
 
-// 부스터 게이지 바 — 화면 상단 중앙. state.gauge(0~100, B가 quiz.js에서 채우고
-// 깎는다)를 그대로 폭 %로 그린다. 상한을 넘거나 음수로 내려오는 경우까지
+// 부스터 게이지 바 — 좌상단, 시간 게이지 바로 아래. state.gauge(0~100, B가 quiz.js에서
+// 채우고 깎는다)를 그대로 폭 %로 그린다. 상한을 넘거나 음수로 내려오는 경우까지
 // 방어적으로 클램프한다 — quiz.js 쪽 상한 처리 유무와 무관하게 바가 안 깨지게.
+// 위치는 좌상단 flex 컨테이너(topLeft)가 잡는다.
 function makeBoostBar() {
   const el = document.createElement("div");
   el.style.cssText = `
-    position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:10;
-    width:min(320px,66vw); height:14px; border-radius:999px;
+    flex:0 0 auto; width:min(320px,66vw); height:14px; border-radius:999px;
     background:rgba(27,29,33,0.55); overflow:hidden;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
   `;
@@ -209,7 +232,10 @@ function makeResult(onRestart) {
   el.appendChild(card);
   return {
     el,
-    show(sec, hits) {
+    show(sec, hits, success = true) {
+      // 도착=성공(청록 "도착!"), 시간초과=실패(적색 "시간 초과"). 버튼(다시 시작)은 공용.
+      title.textContent = success ? "도착!" : "시간 초과";
+      title.style.color = success ? "#2F6F6B" : "#A3324A";
       big.textContent = formatTime(sec);
       sub.textContent = "부딪힘 " + hits + "회";
       el.style.display = "flex";
