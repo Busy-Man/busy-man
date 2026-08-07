@@ -30,12 +30,14 @@ const input = {
   turnRight: false,
   moveLeft: false,
   moveRight: false,
+  boost: false,
 };
 const KEY_MAP = {
   arrowleft: "turnLeft",
   arrowright: "turnRight",
   a: "moveLeft",
   d: "moveRight",
+  w: "boost",
 };
 
 // 기본은 폰을 보는 자세다 — Space를 누르고 있는 동안만 고개를 들어 정면(길)을
@@ -94,8 +96,10 @@ function formatTime(sec) {
 
 // ── HUD / 결과 UI (index.html은 그대로 두고 여기서 인라인으로 만든다) ──
 const hud = makeHud();
+const boostBar = makeBoostBar();
 const result = makeResult(restart);
 document.body.appendChild(hud.el);
+document.body.appendChild(boostBar.el);
 document.body.appendChild(result.el);
 
 let last = performance.now();
@@ -119,6 +123,7 @@ function loop(now) {
   }
 
   hud.set(formatTime(elapsed), world.hits);
+  boostBar.set(state.gauge);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
@@ -143,6 +148,32 @@ function makeHud() {
     set(t, h) {
       time.textContent = "⏱ " + t;
       hits.textContent = "부딪힘 " + h;
+    },
+  };
+}
+
+// 부스터 게이지 바 — 화면 상단 중앙. state.gauge(0~100, B가 quiz.js에서 채우고
+// 깎는다)를 그대로 폭 %로 그린다. 상한을 넘거나 음수로 내려오는 경우까지
+// 방어적으로 클램프한다 — quiz.js 쪽 상한 처리 유무와 무관하게 바가 안 깨지게.
+function makeBoostBar() {
+  const el = document.createElement("div");
+  el.style.cssText = `
+    position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:10;
+    width:min(320px,66vw); height:14px; border-radius:999px;
+    background:rgba(27,29,33,0.55); overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
+  `;
+  const fill = document.createElement("div");
+  fill.style.cssText = `
+    height:100%; width:0%; background:#A3324A;
+    transition:width .12s linear;
+  `;
+  el.appendChild(fill);
+  return {
+    el,
+    set(gauge) {
+      const pct = Math.min(100, Math.max(0, gauge));
+      fill.style.width = pct + "%";
     },
   };
 }
