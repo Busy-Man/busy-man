@@ -541,9 +541,10 @@ export function createWorld(container, opts = {}) {
   const timeLimitSec = totalLength / SPEED + TIME_LIMIT_BONUS_SEC;
 
   buildCityRoads(scene);
-  // 행인 생성 금지 구간(현재는 게이트뿐)은 도로(pedRoads) 위의 s로 등록한다 —
-  // 건물·게이트가 pedRoads/spawnBlocks를 공유해야 같은 도로 객체로 매칭되므로
-  // 여기서 한 번만 만들어 두 함수에 그대로 넘긴다.
+  // 행인 생성 금지 구간(게이트 + 신호등 구역)은 도로(pedRoads) 위의 s로 등록한다 —
+  // 건물·게이트·이벤트가 pedRoads/spawnBlocks를 공유해야 같은 도로 객체로 매칭되므로
+  // 여기서 한 번만 만들어 그대로 넘긴다. createPedestrians가 이 등록을 읽어야 하므로
+  // 반드시 그보다 먼저 채운다(순서 중요).
   const pedRoads = buildPedRoads();
   const spawnBlocks = [];
   const buildings = buildBuildings(
@@ -553,15 +554,20 @@ export function createWorld(container, opts = {}) {
     pedRoads,
     spawnBlocks,
   );
-  const peds = createPedestrians(scene, pedRoads, spawnBlocks);
-  buildGoalMarker(scene, waypoints);
   // 공사장(C)·신호등(T) 이벤트 — 바리게이트/안전 차선을 여기서 한 번만 정한다.
+  // 신호등 구역엔 패널티용 군중(buildCrowd)이 이미 서 있으므로, 지도 전체에
+  // 흩뿌리는 랜덤 배치 행인이 그 위에 겹쳐 나오지 않게 spawnBlocks에도
+  // 등록한다(게이트와 같은 방식) — 다른 구역의 랜덤 행인은 그대로 둔다.
   const { events, navHints } = createEvents(
     scene,
     routeNames,
     segments,
     totalLength,
+    pedRoads,
+    spawnBlocks,
   );
+  const peds = createPedestrians(scene, pedRoads, spawnBlocks);
+  buildGoalMarker(scene, waypoints);
   // 안내 큐 — 회전·게이트·공사장/신호등 경고를 거리(s) 순서 하나로 합친다.
   // update()는 이 중 "아직 안 끝난 것 중 가장 가까운 것"(맨 앞) 하나만 본다.
   // 회전·경고는 판정이 없어서 도착하는 순간 그냥 resolved=true(통과)가 되고,
@@ -1104,7 +1110,9 @@ function nearestLane(lat, positions = LANE_X) {
 // 경로 위 T/C 노드마다 이벤트를 만든다. 바리게이트 차선(C)·안전 차선(T)은 여기서
 // 딱 한 번 랜덤으로 정하고, 통과할 때까지 바뀌지 않는다(요구사항). 메시(바리게이트·
 // 군중)도 여기서 만든다. 반환: events 배열과, 안내 토스트로 쓸 navHints.
-function createEvents(scene, routeNames, segments, totalLength) {
+// pedRoads/spawnBlocks는 신호등(T) 구역에 랜덤 배치 행인이 겹쳐 나오지 않게
+// 막는 데만 쓴다(게이트와 같은 방식) — createPedestrians보다 먼저 호출돼야 한다.
+function createEvents(scene, routeNames, segments, totalLength, pedRoads, spawnBlocks) {
   const events = [];
   const navHints = [];
   const nodeS = (i) => (i < segments.length ? segments[i].startS : totalLength);
@@ -1159,6 +1167,20 @@ function createEvents(scene, routeNames, segments, totalLength) {
         bodyMat,
         headMat,
       );
+      // 이 구역엔 패널티용 군중이 이미 서 있다 — 지도 전체에 흩뿌리는 랜덤 배치
+      // 행인이 그 위에 겹쳐 나오면 사람이 몰려 보이고 충돌 판정도 꼬인다. 갇힘
+      // 판정 구간(startS~endS)과 같은 반경(half)으로 이 구역만 생성 금지시킨다 —
+      // 다른 구역의 랜덤 행인은 건드리지 않는다.
+      const road = findPedRoad(pedRoads, routeNames[i]);
+      if (road) {
+        const centerPt = pointAtArcLength(segments, centerS, 0);
+        addSpawnBlock(
+          spawnBlocks,
+          road,
+          nearestArcLength(road.segs, centerPt.x, centerPt.z),
+          half,
+        );
+      }
       events.push({
         type: "T",
         safeLane,
