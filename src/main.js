@@ -115,6 +115,11 @@ async function startGame() {
     // 상태)에서 다시 불러도 안전하다.
     quiz.destroy();
     quiz = mountQuiz(document.body, { content, state });
+    // 부스터 게이지는 world.reset()도 quiz.destroy/mount도 건드리지 않는다 — 남겨두면
+    // 이전 판 게이지를 그대로 들고 다음 판을 시작한다. AGENTS.md §2는 gauge 기록자를
+    // B 하나로 두지만(A는 W 소비만), 재시작 초기화는 그 판정 밖의 별개 동작이라
+    // 여기서 0으로 둔다.
+    state.gauge = 0;
     elapsed = 0;
     clearTime = null;
     timedOut = false;
