@@ -1,4 +1,4 @@
-// 질문 모달 — 보기 3개, 정오답 처리, 오답 패널티.
+// 질문 모달 — 단순 3개·복합 4개 보기, 정오답 처리, 오답 패널티.
 // 담당: B
 //
 // 확정된 것 (AGENTS.md §3):
@@ -174,9 +174,10 @@ export function mountQuiz(root, opts) {
   }
 
   function onKeyDown(event) {
-    if (!current || event.key < '1' || event.key > '3') return;
+    const picked = Number(event.key) - 1;
+    if (!current || !Number.isInteger(picked) || picked < 0 || picked >= current.quiz.choices.length) return;
     event.preventDefault();
-    judge(Number(event.key) - 1);
+    judge(picked);
   }
 
   // picked === -1 이면 무응답. 오답과 같은 경로를 타고 벌도 같다.
@@ -271,6 +272,7 @@ function shuffleChoices(quiz) {
     [order[i], order[j]] = [order[j], order[i]];
   }
   return {
+    difficulty: quiz.difficulty,
     sender: quiz.sender,
     prompt: quiz.prompt,
     choices: order.map((i) => quiz.choices[i]),
@@ -286,11 +288,12 @@ function validateContent(session, content) {
   }
   const messageIds = new Set(session.messages.map((message) => message.id));
   session.quizzes.forEach((q, i) => {
-    if (!Array.isArray(q.choices) || q.choices.length !== 3) {
-      console.error('[quiz] quizzes[' + i + '].choices 는 3개여야 합니다:', q.choices);
+    const expectedChoices = q.difficulty === 'complex' ? 4 : 3;
+    if (!Array.isArray(q.choices) || q.choices.length !== expectedChoices) {
+      console.error('[quiz] quizzes[' + i + '].choices 는 ' + expectedChoices + '개여야 합니다:', q.choices);
     }
-    if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer > 2) {
-      console.error('[quiz] quizzes[' + i + '].answer 는 0..2 여야 합니다:', q.answer);
+    if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer >= expectedChoices) {
+      console.error('[quiz] quizzes[' + i + '].answer 는 0..' + (expectedChoices - 1) + ' 이어야 합니다:', q.answer);
     }
     if (typeof q.sender !== 'string' || !q.sender) {
       console.error('[quiz] quizzes[' + i + '].sender 가 없습니다:', q.sender);
@@ -307,7 +310,7 @@ function validateContent(session, content) {
 }
 
 // docs/ui-spec.md 의 구성 — 위에서 아래로
-//   상태바(시계 · 카운트다운) / 수신 말풍선 / 장식 입력란 / 보기 3개
+//   상태바(시계 · 카운트다운) / 수신 말풍선 / 장식 입력란 / 보기 3~4개
 function buildModal(quiz, content) {
   const el = document.createElement('div');
   // 붙일 때는 화면 밖에 있다. 붙인 뒤에 이 클래스를 떼면 위로 올라온다.

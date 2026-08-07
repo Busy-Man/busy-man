@@ -6,6 +6,19 @@ import { prepareContentSession } from '../src/content-session.mjs';
 
 const contentPath = new URL('../content/day1.json', import.meta.url);
 
+const COMPLEX_DIMENSIONS = new Map([
+  ['q41', [['13일', '15일'], ['신규 시스템 교육', '계약 협의']]],
+  ['q42', [['오후 2시', '오후 4시'], ['503호', '302호']]],
+  ['q43', [['16일', '18일'], ['PDF', 'PPT']]],
+  ['q44', [['운영 환경', '스테이징 환경'], ['v2.4.1', 'v2.4.3']]],
+  ['q45', [['PAY-184', 'AUTH-207'], ['최 선임', '이 대리']]],
+  ['q46', [['인증 서버', '결제 서버'], ['밤 11시', '새벽 1시']]],
+  ['q47', [['한빛물산', '새봄전자'], ['4부', '2부']]],
+  ['q48', [['14일', '16일'], ['B12', 'C08']]],
+  ['q49', [['금요일', '월요일'], ['7층 교육장', '4층 세미나실']]],
+  ['q50', [['오후 4시', '오후 5시'], ['견적 범위', '점검 일정']]]
+]);
+
 function readContent() {
   return JSON.parse(readFileSync(contentPath, 'utf8'));
 }
@@ -31,6 +44,61 @@ test('세션은 어떤 시드에서도 20개 번들, 58개 메시지, 20개 퀴�
     assert.equal(session.bundles.length, 20);
     assert.equal(session.messages.length, 58);
     assert.equal(session.quizzes.length, 20);
+  }
+});
+
+test('콘텐츠는 단순 40문항과 복합 10문항으로 구성된다', () => {
+  const content = readContent();
+  const complex = content.bundles.filter(bundle => bundle.quiz.difficulty === 'complex');
+
+  assert.equal(content.bundles.length, 50);
+  assert.equal(content.bundles.flatMap(bundle => bundle.messages).length, 146);
+  assert.equal(complex.length, 10);
+  assert.equal(content.bundles.length - complex.length, 40);
+});
+
+test('세션은 어떤 시드에서도 복합 4문항과 단순 16문항을 만든다', () => {
+  for (let seed = 1; seed <= 50; seed += 1) {
+    const session = prepareContentSession(readContent(), { rng: seededRng(seed) });
+    const complex = session.quizzes.filter(quiz => quiz.difficulty === 'complex');
+    const simple = session.quizzes.filter(quiz => quiz.difficulty === 'simple');
+
+    assert.equal(complex.length, 4, `seed ${seed}`);
+    assert.equal(simple.length, 16, `seed ${seed}`);
+    assert.ok(complex.every(quiz => quiz.choices.length === 4), `seed ${seed}`);
+    assert.ok(simple.every(quiz => quiz.choices.length === 3), `seed ${seed}`);
+  }
+});
+
+test('복합 문항 보기는 두 정보의 완전한 2×2 조합이다', () => {
+  const content = readContent();
+  const messagesById = new Map(
+    content.bundles.flatMap(bundle => bundle.messages).map(message => [message.id, message])
+  );
+
+  for (const bundle of content.bundles.filter(bundle => bundle.quiz.difficulty === 'complex')) {
+    const quiz = bundle.quiz;
+    const dimensions = COMPLEX_DIMENSIONS.get(quiz.id);
+    assert.ok(dimensions, `${quiz.id}의 검증 기준이 없습니다`);
+    assert.equal(quiz.choices.length, 4, quiz.id);
+    assert.equal(new Set(quiz.choices).size, 4, quiz.id);
+
+    const combinations = new Set();
+    for (const choice of quiz.choices) {
+      const first = dimensions[0].filter(value => choice.includes(value));
+      const second = dimensions[1].filter(value => choice.includes(value));
+      assert.equal(first.length, 1, `${quiz.id}: ${choice}`);
+      assert.equal(second.length, 1, `${quiz.id}: ${choice}`);
+      combinations.add(first[0] + '|' + second[0]);
+    }
+    assert.equal(combinations.size, 4, quiz.id);
+
+    const sourceText = messagesById.get(quiz.sourceMessageId).text;
+    const answer = quiz.choices[quiz.answer];
+    for (const dimension of dimensions) {
+      const correctValue = dimension.find(value => answer.includes(value));
+      assert.ok(sourceText.includes(correctValue), `${quiz.id}: ${correctValue}`);
+    }
   }
 });
 

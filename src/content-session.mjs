@@ -1,16 +1,28 @@
-const SESSION_BUNDLE_COUNTS = new Map([
-  [3, 18],
+const SESSION_COMPLEX_COUNT = 4;
+const SESSION_SIMPLE_BUNDLE_COUNTS = new Map([
+  [3, 14],
   [2, 2]
 ]);
 
 export function prepareContentSession(content, { force = false, rng = Math.random } = {}) {
   if (content.__bmSession && !force) return content.__bmSession;
 
-  const selected = [];
-  for (const [messageCount, take] of SESSION_BUNDLE_COUNTS) {
-    const candidates = content.bundles.filter((bundle) => bundle.messages.length === messageCount);
+  // 복합 문항은 확률에 맡기지 않는다. 20문항 중 정확히 4개를 먼저 뽑아야
+  // 한 판의 난이도가 콘텐츠 배열 순서나 단순 문항 수에 따라 흔들리지 않는다.
+  const complexCandidates = content.bundles.filter((bundle) => (
+    bundle.quiz.difficulty === 'complex' && bundle.messages.length === 3
+  ));
+  if (complexCandidates.length < SESSION_COMPLEX_COUNT) {
+    throw new Error(`[content] 3문장 복합 묶음이 ${SESSION_COMPLEX_COUNT}개보다 적습니다`);
+  }
+
+  const selected = shuffle(complexCandidates, rng).slice(0, SESSION_COMPLEX_COUNT);
+  for (const [messageCount, take] of SESSION_SIMPLE_BUNDLE_COUNTS) {
+    const candidates = content.bundles.filter((bundle) => (
+      bundle.quiz.difficulty !== 'complex' && bundle.messages.length === messageCount
+    ));
     if (candidates.length < take) {
-      throw new Error(`[content] ${messageCount}문장 묶음이 ${take}개보다 적습니다`);
+      throw new Error(`[content] ${messageCount}문장 단순 묶음이 ${take}개보다 적습니다`);
     }
     selected.push(...shuffle(candidates, rng).slice(0, take));
   }
@@ -71,6 +83,7 @@ function resolveBundle(bundle, values, rng) {
     resolvedQuiz = Object.freeze({
       id: quiz.id,
       field: quiz.field,
+      difficulty: quiz.difficulty || 'simple',
       sourceMessageId: quiz.sourceMessageId,
       sender: substituteContentValue(quiz.sender, replacements),
       prompt: substituteContentValue(quiz.prompt, replacements),
@@ -80,6 +93,7 @@ function resolveBundle(bundle, values, rng) {
   } else {
     resolvedQuiz = Object.freeze({
       id: quiz.id,
+      difficulty: quiz.difficulty || 'simple',
       sourceMessageId: quiz.sourceMessageId,
       sender: quiz.sender,
       prompt: quiz.prompt,
