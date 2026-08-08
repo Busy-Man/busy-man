@@ -1869,9 +1869,28 @@ function labelTexture(text) {
 }
 
 // ── 도착 지점(GOAL) 표시 ──────────────────────────
-// prototype이 도착선(바닥 띠)을 그린 것처럼, 경로 끝(마지막 웨이포인트)에 바닥
-// 결승선 + 양 기둥 + "도착" 배너를 세워 멀리서도 도착 지점을 알아보게 한다.
-// 실제 도착 판정은 update의 s >= totalLength - 1 그대로다(여긴 표시만).
+// 실제 도착 판정은 update의 s >= totalLength - 1 그대로다(여긴 표시만) — 결승선
+// 위치·색은 그대로 두고, "도착" 기둥·배너 대신 결승선 뒤로 길을 살짝 더 뽑아
+// myCompany.glb(회사 건물)를 세운다. ROUTES(§316)는 END2/END3 두 갈래로 끝나지만
+// 이 함수는 그때그때 골라진 경로의 마지막 웨이포인트 좌표만 보고 세우므로
+// 도착지 두 곳 모두 별도 분기 없이 이걸로 커버된다.
+const GOAL_EXT_SEC = 0.8; // 결승선 뒤로 연장할 길이 — 초 단위(SPEED로 거리 환산)
+const MYCOMPANY_MODEL_URL = "./assets/map/myCompany.glb";
+const MYCOMPANY_TARGET_HEIGHT = 9; // 배경 건물(5~8, decorateGrass)보다 한 단 커서 목적지로 눈에 띈다
+// myCompany.glb 노드 이름 → 팔레트 색(docs/map/맵분위기.png). office/tree 배치에
+// 쓰는 이름·색을 그대로 재사용해 도시 전체 톤을 맞춘다.
+const MYCOMPANY_PART_COLOR = {
+  외벽: COLOR.bldgWall,
+  옥상: COLOR.bldgRoof,
+  창문: COLOR.bldgWin,
+  "창문(입구)구분선": COLOR.bldgWinBar,
+  입구: COLOR.bldgDoor,
+  바닥: COLOR.bldgAccent,
+  관상풀: COLOR.flowerBed,
+  나무잎: COLOR.treeLeaf,
+  "나무 줄기": COLOR.treeTrunk,
+};
+
 function buildGoalMarker(scene, waypoints) {
   const end = waypoints[waypoints.length - 1],
     prev = waypoints[waypoints.length - 2];
@@ -1882,9 +1901,9 @@ function buildGoalMarker(scene, waypoints) {
     color: COLOR.goal,
     side: THREE.DoubleSide,
   });
-  const yTop = CEIL + 1.2;
 
-  // 바닥 결승선 — 도로를 가로지르는 청록 띠(끝점 살짝 앞에 둔다)
+  // 바닥 결승선 — 도로를 가로지르는 청록 띠(끝점 살짝 앞에 둔다). 도착 판정
+  // 지점이라 위치·색 모두 그대로 유지한다.
   const b = [end[0] - fwd.x * 1.3, end[1] - fwd.z * 1.3];
   scene.add(
     new THREE.Mesh(
@@ -1898,54 +1917,45 @@ function buildGoalMarker(scene, waypoints) {
     ),
   );
 
-  // 양 기둥
-  for (const side of [-1, 1]) {
-    const gx = end[0] + perp.x * ROAD_HALF * side,
-      gz = end[1] + perp.z * ROAD_HALF * side;
-    scene.add(
-      new THREE.Mesh(
-        quadGeometry(
-          [gx - perp.x * 0.16, 0, gz - perp.z * 0.16],
-          [gx + perp.x * 0.16, 0, gz + perp.z * 0.16],
-          [gx + perp.x * 0.16, yTop, gz + perp.z * 0.16],
-          [gx - perp.x * 0.16, yTop, gz - perp.z * 0.16],
-        ),
-        mat,
-      ),
-    );
-  }
-
-  // 상단 가로 배너 — "도착" 글자를 크게
-  const bannerMat = new THREE.MeshBasicMaterial({
-    map: goalBannerTexture(),
-    side: THREE.DoubleSide,
+  // 결승선 뒤로 길을 GOAL_EXT_SEC(0.5초)만큼 더 뽑아 그 끝에 회사 건물을 세운다.
+  // 일반 구간(S)과 같은 줄무늬 바닥재를 써서 결승선 앞뒤 도로와 이음매가
+  // 어색하지 않게 한다.
+  const extLen = SPEED * GOAL_EXT_SEC;
+  const far = [end[0] + fwd.x * extLen, end[1] + fwd.z * extLen];
+  const extMat = new THREE.MeshBasicMaterial({
+    map: stripeTexture(COLOR.floor, COLOR.floor2),
   });
   scene.add(
     new THREE.Mesh(
       quadGeometry(
-        [end[0] - perp.x * ROAD_HALF, CEIL, end[1] - perp.z * ROAD_HALF],
-        [end[0] + perp.x * ROAD_HALF, CEIL, end[1] + perp.z * ROAD_HALF],
-        [end[0] + perp.x * ROAD_HALF, yTop, end[1] + perp.z * ROAD_HALF],
-        [end[0] - perp.x * ROAD_HALF, yTop, end[1] - perp.z * ROAD_HALF],
+        [end[0] - perp.x * ROAD_HALF, 0.01, end[1] - perp.z * ROAD_HALF],
+        [end[0] + perp.x * ROAD_HALF, 0.01, end[1] + perp.z * ROAD_HALF],
+        [far[0] + perp.x * ROAD_HALF, 0.01, far[1] + perp.z * ROAD_HALF],
+        [far[0] - perp.x * ROAD_HALF, 0.01, far[1] - perp.z * ROAD_HALF],
       ),
-      bannerMat,
+      extMat,
     ),
   );
-}
 
-function goalBannerTexture() {
-  const cnv = document.createElement("canvas");
-  cnv.width = 512;
-  cnv.height = 128;
-  const ctx = cnv.getContext("2d");
-  ctx.fillStyle = hexColor(COLOR.goal);
-  ctx.fillRect(0, 0, 512, 128);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 84px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("도착", 256, 70);
-  return new THREE.CanvasTexture(cnv);
+  // myCompany.glb도 fence/barricade와 같은 패턴 — 비동기 로드라 자리(far)만 먼저
+  // 정해 두고 로드되는 대로 붙인다. 입구가 결승선(플레이어가 오는 방향)을 보게
+  // decorateGrass의 건물 배치와 같은 공식(atan2(dx,dz))에 "오는 방향"(-fwd)을 넣는다.
+  loadModelUnit(MYCOMPANY_MODEL_URL, MYCOMPANY_PART_COLOR)
+    .then((unit) => {
+      if (unit.height < 1e-6) return;
+      const sc = MYCOMPANY_TARGET_HEIGHT / unit.height;
+      const clone = unit.unit.clone(true);
+      clone.position.set(far[0], 0, far[1]);
+      clone.rotation.y = Math.atan2(-fwd.x, -fwd.z);
+      clone.scale.setScalar(sc);
+      scene.add(clone);
+    })
+    .catch((err) => {
+      console.error(
+        "myCompany.glb 로드 실패 — 도착 지점 건물이 안 보인다",
+        err,
+      );
+    });
 }
 
 // 지금 고른 경로에 실제로 있는 건물만 판정한다 — 회전 안내와 같은 원리로,
