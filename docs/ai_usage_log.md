@@ -155,9 +155,7 @@
 | 목적 | |
 | 반영 | 그대로 / 부분 수정 / 골격만 차용 / 폐기 |
 
-**프롬프트**
-
-> 원문 그대로. 길면 ai-log/raw/의 날짜·시각으로 가리킨다.
+**프롬프트** — [`ai-log/raw/YYYY-MM-DD.md` HH:MM~HH:MM](./ai-log/raw/YYYY-MM-DD.md)
 
 **산출물**
 
