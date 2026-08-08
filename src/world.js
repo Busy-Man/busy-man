@@ -173,6 +173,10 @@ const COLOR = {
   lampBulb: 0xffe9a8, // 가로등 전구
   flowerBed: 0x8ed081, // 화단(관상풀)
   treeBase: 0x6f9e3a, // tree2의 밑동 바닥(관목 흙/풀)
+  // trafficLight.glb 노드 이름 → 색. 폴(기둥)은 가로등과 같은 색을 재사용한다.
+  trafficBody: 0x3a3f46, // 신호등본체(신호 박스)
+  trafficRed: 0xe6483c, // 빨간불
+  trafficGreen: 0x3ea84c, // 초록불
 };
 
 // ── 행인(보행자) — prototype/busy-man-prototype.html의 peds를 그대로 옮겼다.
@@ -579,14 +583,15 @@ export function createWorld(container, opts = {}) {
   // 신호등 구역엔 패널티용 군중(buildCrowd)이 이미 서 있으므로, 지도 전체에
   // 흩뿌리는 랜덤 배치 행인이 그 위에 겹쳐 나오지 않게 spawnBlocks에도
   // 등록한다(게이트와 같은 방식) — 다른 구역의 랜덤 행인은 그대로 둔다.
-  const { events, navHints, barricadePending } = createEvents(
-    scene,
-    routeNames,
-    segments,
-    totalLength,
-    pedRoads,
-    spawnBlocks,
-  );
+  const { events, navHints, barricadePending, trafficLightPending } =
+    createEvents(
+      scene,
+      routeNames,
+      segments,
+      totalLength,
+      pedRoads,
+      spawnBlocks,
+    );
   // barricade.glb도 비동기 로드 — fence.glb/tree.glb와 같은 패턴(자리는 미리
   // 잡아 두고, 모델은 로드되는 대로 붙인다). 폭(w)·높이(BARR_H)는 모든
   // 바리게이트가 같으니 스케일도 한 번만 계산한다.
@@ -604,6 +609,24 @@ export function createWorld(container, opts = {}) {
     .catch((err) => {
       console.error(
         "barricade.glb 로드 실패 — 공사장 바리게이트가 안 보인다",
+        err,
+      );
+    });
+  // trafficLight.glb — office/tree와 같은 loadModelUnit(이름→색 매핑)을 재사용한다.
+  // 목표 높이는 light.glb(가로등, 목표 2.25)의 1.3배(요구사항).
+  loadModelUnit(TRAFFICLIGHT_MODEL_URL, TRAFFICLIGHT_PART_COLOR)
+    .then((unit) => {
+      if (unit.height < 1e-6) return;
+      const sc = TRAFFICLIGHT_TARGET_HEIGHT / unit.height;
+      for (const group of trafficLightPending) {
+        const clone = unit.unit.clone(true);
+        clone.scale.setScalar(sc);
+        group.add(clone);
+      }
+    })
+    .catch((err) => {
+      console.error(
+        "trafficLight.glb 로드 실패 — 신호등 모델이 안 보인다",
         err,
       );
     });
@@ -1186,6 +1209,9 @@ function createEvents(
   // 그룹을 세워 두고 모델은 loadBarricadeUnit이 끝난 뒤 붙인다(fence.glb와
   // 같은 방식) — 그 그룹을 여기 모아 뒀다가 createWorld가 로드 완료 후 순회한다.
   const barricadePending = [];
+  // trafficLight.glb도 같은 패턴(비동기 로드) — 자리만 여기서 잡아 두고
+  // createWorld가 로드 완료 후 순회하며 clone을 붙인다.
+  const trafficLightPending = [];
 
   for (let i = 1; i < routeNames.length - 1; i++) {
     const zone = nodeZone(routeNames[i]);
@@ -1224,11 +1250,16 @@ function createEvents(
     } else {
       const safeLane = Math.floor(Math.random() * 3);
       const half = durationToDistance(TL_HALF_SEC);
+      // 색칠된(=펜스 없는) 구역의 반폭 — expandZones가 벽을 안 세우는 구간과
+      // 정확히 같은 폭(ZONE_SEC)이다. endS를 TL_HALF_SEC 대신 여기 맞춰서,
+      // 안전 차선을 못 타 끌려가는 구간이 펜스가 다시 시작되는 지점을 넘지
+      // 않게 한다 — 넘으면 펜스 있는 구간에서까지 계속 끌려가 보였다(요구사항).
+      const zoneHalf = durationToDistance(ZONE_SEC) / 2;
       const startS = centerS - half,
-        endS = centerS + half;
+        endS = centerS + zoneHalf;
       // 군중은 갇힘 판정 구간(startS)이 아니라 실제로 색칠되는 노란 구역
       // 경계에 세운다(요구사항) — expandZones와 같은 폭(ZONE_SEC)을 쓴다.
-      const zoneStartS = centerS - durationToDistance(ZONE_SEC) / 2;
+      const zoneStartS = centerS - zoneHalf;
       const crowd = buildCrowd(
         scene,
         segments,
@@ -1244,6 +1275,7 @@ function createEvents(
       // 다른 구역의 랜덤 행인은 건드리지 않는다.
       const road = findPedRoad(pedRoads, routeNames[i]);
       if (road) {
+        const TRAFFICLIGHT_TARGET_HEIGHT = LIGHT_TARGET_HEIGHT * 1.5;
         const centerPt = pointAtArcLength(segments, centerS, 0);
         addSpawnBlock(
           spawnBlocks,
@@ -1262,8 +1294,14 @@ function createEvents(
         opened: false,
         phase: "pending", // pending → active(통과/갇힘 결정됨) → done
         trap: false,
-        trapSpeed: (endS - startS) / TL_TRAP_SEC,
+        trapSpeed: 3, ////
       });
+      // 구역 끝지점(endS, 펜스가 다시 시작되는 바로 그 지점)의 우측 펜스 앞에
+      // trafficLight.glb를 세운다(요구사항) — endS는 바로 위에서 zoneHalf로
+      // 다시 잡은 그 좌표라 펜스 시작점과 정확히 맞아떨어진다.
+      const tlGroup = buildTrafficLightGroup(segments, endS);
+      scene.add(tlGroup);
+      trafficLightPending.push(tlGroup);
       navHints.push({
         kind: "traffic",
         s: Math.max(startS - 6, navFloor),
@@ -1273,7 +1311,7 @@ function createEvents(
       });
     }
   }
-  return { events, navHints, barricadePending };
+  return { events, navHints, barricadePending, trafficLightPending };
 }
 
 // 바리게이트 자리 — 차선 폭 중앙에 빈 그룹만 세운다(위치·회전). barricade.glb는
@@ -1289,6 +1327,26 @@ function buildBarricadeGroup(segments, barrS, lane) {
   const group = new THREE.Group();
   group.position.set(cx, -BARR_H, cz); // 지하에 숨겨 둔다
   group.rotation.y = Math.atan2(-perp.z, perp.x); // 로컬 +X를 perp(차선을 가로지르는) 방향으로
+  return group;
+}
+
+// 신호등 구역 끝(s, 펜스가 다시 시작되는 지점)의 우측 펜스 바로 앞에 자리를 잡는다.
+// trafficLight.glb도 비동기 로드라 barricade와 같은 패턴 — 빈 그룹만 여기서 세우고
+// createWorld가 loadModelUnit 완료 후 clone을 붙인다(trafficLightPending).
+function buildTrafficLightGroup(segments, s) {
+  const heading = segHeadingAt(segments, s);
+  const c = pointAtArcLength(segments, s, 0);
+  const perp = perpVec(heading);
+  // LANE_X처럼 +side가 오른쪽이다(§LANE_NAME) — ROAD_HALF+0.8은 가로등(light.glb)과
+  // 같은 여유폭. 펜스는 정확히 ROAD_HALF에 서므로 이 정도 바깥이 "펜스 바로 앞"이다.
+  const cx = c.x + perp.x * (ROAD_HALF + 0.8),
+    cz = c.z + perp.z * (ROAD_HALF + 0.8);
+  const group = new THREE.Group();
+  group.position.set(cx, 0, cz);
+  // buildGoalMarker의 회사 건물과 같은 이유로 오는 방향(-fwd)을 보게 한다 —
+  // 신호등 얼굴이 다가오는 플레이어를 향해야 신호가 보인다.
+  const fwd = dirVec(heading);
+  group.rotation.y = Math.atan2(-fwd.x, -fwd.z);
   return group;
 }
 
@@ -1875,8 +1933,8 @@ function labelTexture(text) {
 // 이 함수는 그때그때 골라진 경로의 마지막 웨이포인트 좌표만 보고 세우므로
 // 도착지 두 곳 모두 별도 분기 없이 이걸로 커버된다.
 const GOAL_EXT_SEC = 0.8; // 결승선 뒤로 연장할 길이 — 초 단위(SPEED로 거리 환산)
-const MYCOMPANY_MODEL_URL = "./assets/map/myCompany.glb";
-const MYCOMPANY_TARGET_HEIGHT = 9; // 배경 건물(5~8, decorateGrass)보다 한 단 커서 목적지로 눈에 띈다
+const MYCOMPANY_MODEL_URL = "./assets/map/myCompany2.glb";
+const MYCOMPANY_TARGET_HEIGHT = 20; // 배경 건물(5~8, decorateGrass)보다 한 단 커서 목적지로 눈에 띈다
 // myCompany.glb 노드 이름 → 팔레트 색(docs/map/맵분위기.png). office/tree 배치에
 // 쓰는 이름·색을 그대로 재사용해 도시 전체 톤을 맞춘다.
 const MYCOMPANY_PART_COLOR = {
@@ -2167,6 +2225,10 @@ const OFFICE_URLS = [
   "./assets/map/office3.glb",
 ];
 const LIGHT_URL = "./assets/map/light.glb";
+const LIGHT_TARGET_HEIGHT = 2.25; // decorateGrass의 가로등 목표 높이(sc 계산에 쓰는 값과 동일)
+const TRAFFICLIGHT_MODEL_URL = "./assets/map/trafficLight.glb";
+// 요구사항: 가로등(light.glb) 목표 높이의 1.3배.
+const TRAFFICLIGHT_TARGET_HEIGHT = LIGHT_TARGET_HEIGHT * 1.3;
 const FLOWERBED_URLS = [
   "./assets/map/flowerBed1.glb",
   "./assets/map/flowerBed2.glb",
@@ -2207,6 +2269,13 @@ const TREE_PART_COLOR = {
   "나무 줄기": COLOR.treeTrunk,
   나무잎: COLOR.treeLeaf,
   바닥: COLOR.treeBase,
+};
+// trafficLight.glb 노드 이름 그대로.
+const TRAFFICLIGHT_PART_COLOR = {
+  "폴(기둥)": COLOR.lampPole,
+  신호등본체: COLOR.trafficBody,
+  빨간불: COLOR.trafficRed,
+  초록불: COLOR.trafficGreen,
 };
 
 const modelUnitCache = {};
@@ -2349,7 +2418,7 @@ function decorateGrass(scene, xs, zs, pad) {
 
       // ── 가로등: 연석 바로 옆에서 팔이 도로 위로 뻗게(+Z가 도로 방향).
       if (light.height > 1e-6) {
-        const sc = 2.25 / light.height;
+        const sc = LIGHT_TARGET_HEIGHT / light.height;
         const radius = 0.7;
         alongRoads(15, (segs, s, side, dirx, dirz) => {
           const a = pointAtArcLength(segs, s, side * (ROAD_HALF + 0.8));
@@ -2586,7 +2655,11 @@ function buildRoadStrip(scene, names, mats, junctions, roadIdx, fenceSegments) {
     if (len < 1e-6) continue;
     const d0 = dirs[i],
       d1 = dirs[i + 1];
-    const vRepeat = Math.max(1, len / 6); // prototype 기준 3유닛마다 색이 바뀌도록 주기 6유닛
+    // prototype 기준 3유닛마다 색이 바뀌도록 주기 6유닛 — T(신호등)만 예외다.
+    // crosswalkTexture는 그 자체로 완결된 사다리 무늬(흰줄 4개)라, 구간 길이로
+    // 반복시키면 T 구간마다 반복 횟수가 달라져 무늬가 뭉개지거나 늘어난다.
+    // 대신 vRepeat=1로 고정해 무늬 하나를 구간 길이에 맞춰 통째로 늘인다.
+    const vRepeat = segType[i] === "T" ? 1 : Math.max(1, len / 6);
     const mat = mats[segType[i]] || mats.S; // 이 구간이 S/T/C 중 무엇이냐에 따라 색
     const floorMat = mat.floor;
 
@@ -2670,15 +2743,21 @@ function stripeTexture(colorA, colorB) {
 
 // 횡단보도 — 진행방향(세로 v)으로 굵은 검정/흰 줄이 번갈아 나오게 세로로 2칸.
 // 바닥 UV는 v가 진행방향이라, 세로 2픽셀이 도로를 가로지르는 줄무늬가 된다.
+// 신호등 구역 바닥 — docs/map/image.png 참고: 검정 바탕에 흰 가로줄 4개가 같은
+// 간격으로 늘어선 사다리꼴 모양. 1×9칸 중 홀수 칸(1·3·5·7)만 흰색으로 채우면
+// 위아래 여백까지 검정 다섯 칸·흰색 네 칸이 전부 같은 두께가 되어 그 모양이 된다.
+// buildRoadStrip이 T 구간엔 vRepeat=1을 고정으로 넘긴다 — 길이에 따라 반복되던
+// 예전 줄무늬(2×1)와 달리 이 무늬는 구간 길이에 맞춰 한 번만 늘어난다.
 function crosswalkTexture() {
+  const rows = 9;
   const cnv = document.createElement("canvas");
   cnv.width = 1;
-  cnv.height = 2;
+  cnv.height = rows;
   const ctx = cnv.getContext("2d");
   ctx.fillStyle = hexColor(COLOR.crosswalk1);
-  ctx.fillRect(0, 0, 1, 1);
+  ctx.fillRect(0, 0, 1, rows);
   ctx.fillStyle = hexColor(COLOR.crosswalk2);
-  ctx.fillRect(0, 1, 1, 1);
+  for (let r = 1; r < rows; r += 2) ctx.fillRect(0, r, 1, 1);
   return finishTexture(cnv);
 }
 
