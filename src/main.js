@@ -279,9 +279,9 @@ function makeResult(onRestart) {
     el,
     show(sec, hits, success = true) {
       // 도착=성공(청록 "도착!"), 시간초과=실패(적색 "시간 초과"). 버튼(다시 시작)은 공용.
-      title.textContent = success ? "도착!" : "시간 초과";
+      title.textContent = success ? "도착" : "시간 초과";
       title.style.color = success ? "#2F6F6B" : "#A3324A";
-      big.textContent = formatTime(sec);
+      big.textContent = success ? "정시 출근 성공!" : "지각하셨습니다.";
       sub.textContent = "부딪힘 " + hits + "회";
       el.style.display = "flex";
     },
@@ -356,7 +356,8 @@ function makeStartScreen(onStart) {
   title.style.cssText = "font-size:30px; font-weight:800;";
 
   const goal = document.createElement("div");
-  goal.textContent = "목표: 부딪히지 않고, 문자에도 잘 답하면서 최대한 빨리 회사에 도착하기";
+  goal.textContent =
+    "목표: 부딪히지 않고, 문자에도 잘 답하면서 최대한 빨리 회사에 도착하기";
   goal.style.cssText = "font-size:15px; line-height:1.6; max-width:360px;";
 
   const rules = document.createElement("div");
