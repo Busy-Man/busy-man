@@ -736,7 +736,14 @@ export function createWorld(container, opts = {}) {
           front.announced = true;
           if (onNavHint) onNavHint(front);
         }
-        if (prevS < front.s && s >= front.s) {
+        // prevS < front.s를 함께 요구하면 안 된다 — N4처럼 실제로 꺾이는 갈림길
+        // 바로 뒤에 다음 안내(T4 신호등 등)가 1유닛 간격으로 바짝 붙어 있으면,
+        // 회전 중 한 프레임이 두 s를 동시에 넘는 순간 앞엣것만 resolved되고
+        // 뒤엣것은 prevS가 이미 자기 s를 지나친 채로 front가 된다 — 그러면 이
+        // 조건을 다시는 못 만족해 뒤엣것부터 끝까지 안내가 통째로 멈춘다(B7 이후
+        // 안내가 안 뜨던 원인). s >= front.s만 보면 늦게라도(다음 프레임에) 반드시
+        // resolved된다.
+        if (s >= front.s) {
           if (front.kind === "gate") {
             const lane = nearestLane(
               lateralOffset(segments, x, z),
