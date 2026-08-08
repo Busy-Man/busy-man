@@ -147,7 +147,7 @@ async function startGame() {
   // 일직선). 부딪힘 횟수는 상시 HUD에서 빼고 결과 모달에서만 보여준다(요구사항).
   const topLeft = document.createElement("div");
   topLeft.style.cssText =
-    "position:fixed; top:16px; left:16px; z-index:10; display:flex; align-items:center; gap:12px;";
+    "position:fixed; top:18px; left:16px; z-index:10; display:flex; align-items:center; gap:15px;";
   topLeft.append(timeBar.el, boostBar.el);
   document.body.append(topLeft, result.el, restartConfirm.el);
 
@@ -194,25 +194,47 @@ function formatTime(sec) {
 }
 
 // ── UI 빌더 ────────────────────────────────────────
+// 게이지 바 공통 뼈대 — 아이콘이 막대 왼쪽 끝에 반쯤 겹쳐 얹힌 최초 모양 그대로다
+// (흰 배경 캡슐로 감싸는 시도는 되돌렸다). 막대 굵기만 20px → 25px로 살짝 키웠다.
+const GAUGE_ICON_SIZE = 34;
+const GAUGE_ICON_OVERLAP = 14;
+
+function makeGaugeWrap() {
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "flex:0 0 auto; display:flex; align-items:center;";
+  const bar = document.createElement("div");
+  bar.style.cssText = `
+    flex:0 0 auto; width:min(320px,66vw); height:22px; border-radius:999px;
+    background:rgba(27,29,33,0.55); overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);
+  `;
+  const fill = document.createElement("div");
+  fill.style.cssText = "height:100%; width:0%; transition:width .1s linear;";
+  bar.appendChild(fill);
+  return { wrap, bar, fill };
+}
+
 // 시간 게이지 — 좌상단 맨 위. 부스터 게이지와 같은 크기(요구사항). 0%에서 시작해
 // 성공 제한 시간에 닿으면 100%가 된다. 숫자는 절대 표시하지 않는다(요구사항).
 // 퀴즈·결과로 멈춘 동안은 elapsed가 흐르지 않으므로 게이지도 자동으로 함께 멈춘다.
 // 위치는 좌상단 flex 컨테이너(topLeft)가 잡는다.
 function makeTimeBar() {
-  const el = document.createElement("div");
-  el.style.cssText = `
-    flex:0 0 auto; width:min(320px,66vw); height:14px; border-radius:999px;
-    background:rgba(27,29,33,0.55); overflow:hidden;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
+  const { wrap, bar, fill } = makeGaugeWrap();
+  fill.style.background = "#FFF8E0";
+
+  // timer.png는 이미 노란 원판이 그림에 포함돼 있어 별도 배경 원을 덧대지 않고
+  // 이미지 그대로 쓴다. z-index는 flex 아이템이라 position 없이도 먹는다.
+  const icon = document.createElement("img");
+  icon.src = "./assets/map/gauge/timer.png";
+  icon.alt = "";
+  icon.style.cssText = `
+    width:${GAUGE_ICON_SIZE}px; height:${GAUGE_ICON_SIZE}px; object-fit:contain;
+    z-index:2; margin-right:-${GAUGE_ICON_OVERLAP}px;
+    filter:drop-shadow(0 0 3px rgba(255,196,0,.55));
   `;
-  const fill = document.createElement("div");
-  fill.style.cssText = `
-    height:100%; width:0%; background:#E0A458;
-    transition:width .1s linear;
-  `;
-  el.appendChild(fill);
+  wrap.append(icon, bar);
   return {
-    el,
+    el: wrap,
     set(frac) {
       const pct = Math.min(100, Math.max(0, frac * 100));
       fill.style.width = pct + "%";
@@ -220,25 +242,33 @@ function makeTimeBar() {
   };
 }
 
-// 부스터 게이지 바 — 좌상단, 시간 게이지 바로 아래. state.gauge(0~100, B가 quiz.js에서
-// 채우고 깎는다)를 그대로 폭 %로 그린다. 상한을 넘거나 음수로 내려오는 경우까지
-// 방어적으로 클램프한다 — quiz.js 쪽 상한 처리 유무와 무관하게 바가 안 깨지게.
-// 위치는 좌상단 flex 컨테이너(topLeft)가 잡는다.
+// 부스터 게이지 바 — 좌상단, 시간 게이지 옆(요구사항: 같은 줄, 일직선). state.gauge
+// (0~100, B가 quiz.js에서 채우고 깎는다)를 그대로 폭 %로 그린다. 상한을 넘거나
+// 음수로 내려오는 경우까지 방어적으로 클램프한다 — quiz.js 쪽 상한 처리 유무와
+// 무관하게 바가 안 깨지게. 위치는 좌상단 flex 컨테이너(topLeft)가 잡는다.
 function makeBoostBar() {
-  const el = document.createElement("div");
-  el.style.cssText = `
-    flex:0 0 auto; width:min(320px,66vw); height:14px; border-radius:999px;
-    background:rgba(27,29,33,0.55); overflow:hidden;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
+  const { wrap, bar, fill } = makeGaugeWrap();
+  fill.style.background = "#E31D20";
+
+  // booster.png는 배경이 투명한 불꽃 모양뿐이라, timer.png와 크기·존재감을
+  // 맞추려면 원형 배지를 직접 씌워야 한다.
+  const badge = document.createElement("div");
+  badge.style.cssText = `
+    width:${GAUGE_ICON_SIZE}px; height:${GAUGE_ICON_SIZE}px; border-radius:50%;
+    flex:0 0 auto; background:#1B1D21;
+    box-shadow:0 0 0 2px rgba(255,255,255,0.18) inset;
+    display:flex; align-items:center; justify-content:center;
+    z-index:2; margin-right:-${GAUGE_ICON_OVERLAP}px;
   `;
-  const fill = document.createElement("div");
-  fill.style.cssText = `
-    height:100%; width:0%; background:#A3324A;
-    transition:width .12s linear;
-  `;
-  el.appendChild(fill);
+  const icon = document.createElement("img");
+  icon.src = "./assets/map/gauge/booster.png";
+  icon.alt = "";
+  icon.style.cssText =
+    "width:60%; height:60%; object-fit:contain; filter:drop-shadow(0 0 3px rgba(255,120,40,.6));";
+  badge.appendChild(icon);
+  wrap.append(badge, bar);
   return {
-    el,
+    el: wrap,
     set(gauge) {
       const pct = Math.min(100, Math.max(0, gauge));
       fill.style.width = pct + "%";
